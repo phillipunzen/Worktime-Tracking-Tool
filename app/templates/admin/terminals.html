@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Stempelterminals{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Stempelterminals</h1><p class="muted">Gemeinsame Geräte (Tablet, PC am Eingang), an denen Mitarbeiter ohne Login per Personalnummer und PIN stempeln.</p></div>
+</div>
+
+{% if without_badge %}
+  <div class="flash flash-info">{% if without_badge == 1 %}1 aktiver Benutzer hat noch keine Personalnummer und kann das Terminal nicht nutzen.{% else %}{{ without_badge }} aktive Benutzer haben noch keine Personalnummer und können das Terminal nicht nutzen.{% endif %} Du kannst sie unter <a href="{{ url_for('admin.users') }}">Benutzer</a> vergeben.</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Neues Terminal freischalten</h2>
+    <form method="post">
+      {{ csrf() }}<input type="hidden" name="action" value="create">
+      <div class="field"><label>Name / Standort</label><input type="text" name="name" maxlength="100" placeholder="z. B. Eingang Halle 1" required></div>
+      <div class="field"><label class="check"><input type="checkbox" name="require_pin" value="1" checked> PIN verlangen</label>
+        <div class="hint">Ohne PIN genügt die Personal-/Ausweisnummer, z. B. für einen RFID-Leser. Dann kann aber jeder mit bekannter Nummer für andere stempeln.</div></div>
+      <button class="btn" type="submit">Terminal anlegen</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>So geht's</h2>
+    <ol class="small" style="padding-left:1.2rem;margin:0">
+      <li>Terminal anlegen und den geheimen Link auf dem Gerät öffnen.</li>
+      <li>Den Link als Lesezeichen bzw. „Zum Home-Bildschirm“ speichern, idealerweise im Kiosk-/Vollbildmodus.</li>
+      <li>Allen Mitarbeitern unter <em>Benutzer</em> eine Personalnummer geben. Die PIN setzt der Admin oder der Mitarbeiter selbst unter <em>Mein Konto</em>.</li>
+      <li>Geht ein Gerät verloren, den Link erneuern oder das Terminal sperren.</li>
+    </ol>
+    {% if config.APP_MODE != 'terminal' and not config.TERMINAL_BASE_URL %}
+      <p class="small muted" style="margin-bottom:0">Tipp: Das Terminal kann auch als eigener Container unter einer anderen Adresse bzw. einem anderen Port laufen, etwa nur im Firmennetz (siehe README, <code>TERMINAL_BASE_URL</code>).</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  {% if terminals %}
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Terminal</th><th>Link</th><th>PIN</th><th>Zuletzt genutzt</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for t in terminals %}
+      {% set link = url_for_terminal(t) %}
+      <tr>
+        <td data-label="Terminal"><strong>{{ t.name }}</strong><div class="small muted">seit {{ t.created_at|d }}</div></td>
+        <td data-label="Link"><input type="text" readonly value="{{ link }}" onclick="this.select()" style="min-width:16rem;font-size:.8rem">
+          <a class="small" href="{{ link }}" target="_blank" rel="noopener">öffnen ↗</a></td>
+        <td data-label="PIN">{{ 'verlangt' if t.require_pin else 'nein' }}</td>
+        <td data-label="Zuletzt genutzt" class="nowrap">{{ t.last_used_at|dt if t.last_used_at else '–' }}</td>
+        <td data-label="Status">{% if t.active %}<span class="tag tag-green">aktiv</span>{% else %}<span class="tag tag-red">gesperrt</span>{% endif %}</td>
+        <td data-label="" class="right nowrap">
+          {% for action, label, confirm in [('toggle', 'Entsperren' if not t.active else 'Sperren', ''),
+                                            ('pin', 'PIN aus' if t.require_pin else 'PIN an', ''),
+                                            ('regenerate', 'Link erneuern', 'Neuen Link erzeugen? Der alte Link funktioniert danach nicht mehr.'),
+                                            ('delete', 'Löschen', 'Terminal löschen?')] %}
+            <form class="inline" method="post" {% if confirm %}data-confirm="{{ confirm }}"{% endif %}>
+              {{ csrf() }}<input type="hidden" name="action" value="{{ action }}"><input type="hidden" name="id" value="{{ t.id }}">
+              <button class="btn btn-light btn-sm" type="submit">{{ label }}</button>
+            </form>
+          {% endfor %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty">Noch kein Terminal angelegt.</p>{% endif %}
+</div>
+{% endblock %}

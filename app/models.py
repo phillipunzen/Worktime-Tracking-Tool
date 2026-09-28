@@ -192,3 +192,36 @@ class Setting(db.Model):
 
     setting_key = db.Column(db.String(64), primary_key=True)
     setting_value = db.Column(db.String(255))
+
+
+class TerminalCredential(db.Model):
+    """Personalnummer + PIN eines Benutzers für das Stempelterminal."""
+    __tablename__ = "terminal_credentials"
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)
+    badge_number = db.Column(db.String(32), nullable=False, unique=True)
+    pin_hash = db.Column(db.String(255))
+    failed_attempts = db.Column(db.Integer, nullable=False, default=0)
+    locked_until = db.Column(db.DateTime)
+
+    user = db.relationship("User", backref=db.backref("terminal_credential", uselist=False,
+                                                      cascade="all, delete-orphan"))
+
+    def set_pin(self, pin):
+        self.pin_hash = generate_password_hash(pin) if pin else None
+
+    def check_pin(self, pin):
+        return bool(self.pin_hash) and check_password_hash(self.pin_hash, pin)
+
+
+class Terminal(db.Model):
+    """Freigeschaltetes Stempelterminal (z. B. Tablet am Eingang), erreichbar über einen geheimen Link."""
+    __tablename__ = "terminals"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    token = db.Column(db.String(64), nullable=False, unique=True)
+    require_pin = db.Column(db.Boolean, nullable=False, default=True)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=now_local)
+    last_used_at = db.Column(db.DateTime)

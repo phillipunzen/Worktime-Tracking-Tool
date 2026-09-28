@@ -1,0 +1,14 @@
+{% extends "terminal/_layout.html" %}
+{% block body_attrs %}data-autoreturn="{{ url_for('terminal.index', token=terminal.token) }}" data-autoreturn-after="{{ 5 if ok else 8 }}"{% endblock %}
+{% block content %}
+<div class="kiosk-card kiosk-done {{ 'ok' if ok else 'fail' }}">
+  <div class="kiosk-icon">{{ '✓' if ok else '!' }}</div>
+  <h1>{{ message }}</h1>
+  <p class="kiosk-sub">{{ user.full_name }} · {{ now|t }} Uhr</p>
+  <div class="kiosk-stats">
+    <div><span>Heute</span><strong>{{ today.work_minutes|hm }}</strong></div>
+    <div><span>Diese Woche</span><strong>{{ week.work_minutes|hm }}</strong><small>von {{ week.target_minutes|hm }}</small></div>
+  </div>
+  <a class="kiosk-btn kiosk-ok" href="{{ url_for('terminal.index', token=terminal.token) }}">Fertig</a>
+</div>
+{% endblock %}

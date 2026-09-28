@@ -1,6 +1,31 @@
 # Variante mit Microsoft SQL Server 2022
 #   docker compose -f docker-compose.mssql.yml up -d
+#   docker compose -f docker-compose.mssql.yml --profile terminal up -d   (zusätzlich Terminal auf Port 8081)
 # Hinweis: SQL Server benötigt mind. 2 GB RAM und läuft nur auf x86_64.
+
+x-app-env: &app-env
+  DB_TYPE: mssql
+  DB_HOST: db
+  DB_PORT: 1433
+  DB_NAME: ${MSSQL_DATABASE:-zeiterfassung}
+  DB_USER: sa
+  DB_PASSWORD: ${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD in .env setzen}
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY in .env setzen}
+  TZ: ${TZ:-Europe/Berlin}
+  COMPANY_NAME: ${COMPANY_NAME:-Zeiterfassung}
+  ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+  ALLOW_SELF_EDIT: ${ALLOW_SELF_EDIT:-true}
+  TERMINAL_BASE_URL: ${TERMINAL_BASE_URL:-}
+  BEHIND_PROXY: ${BEHIND_PROXY:-false}
+  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+  SMTP_FROM: ${SMTP_FROM:-}
+
 services:
   app:
     build: .
@@ -14,26 +39,22 @@ services:
     ports:
       - "${APP_PORT:-8080}:8000"
     environment:
-      DB_TYPE: mssql
-      DB_HOST: db
-      DB_PORT: 1433
-      DB_NAME: ${MSSQL_DATABASE:-zeiterfassung}
-      DB_USER: sa
-      DB_PASSWORD: ${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD in .env setzen}
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY in .env setzen}
-      TZ: ${TZ:-Europe/Berlin}
-      COMPANY_NAME: ${COMPANY_NAME:-Zeiterfassung}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
-      ALLOW_SELF_EDIT: ${ALLOW_SELF_EDIT:-true}
-      BEHIND_PROXY: ${BEHIND_PROXY:-false}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
-      SMTP_FROM: ${SMTP_FROM:-}
+      <<: *app-env
+
+  # Optional: Stempelterminal unter eigener Adresse/Port – liefert NUR das Terminal aus
+  terminal:
+    image: zeiterfassung:latest
+    profiles: ["terminal"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${TERMINAL_PORT:-8081}:8000"
+    environment:
+      <<: *app-env
+      APP_MODE: terminal
+      GUNICORN_WORKERS: 2
 
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest

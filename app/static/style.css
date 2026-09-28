@@ -253,3 +253,23 @@ details summary { cursor: pointer; font-weight: 600; }
 .switch input:checked + .slider { background: var(--success); }
 .switch input:checked + .slider::before { transform: translateX(18px); }
 .switch input:focus-visible + .slider { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ------------------------------------------------ Verwaltungs-Dropdown */
+.nav-group { position: relative; }
+.nav-group > summary {
+  list-style: none; color: var(--nav-text); padding: .45rem .7rem; border-radius: 8px; font-size: .92rem;
+  cursor: pointer; white-space: nowrap; font-weight: normal;
+}
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary::after { content: " ▾"; font-size: .75em; opacity: .7; }
+.nav-group > summary:hover { background: rgba(255,255,255,.08); }
+.nav-group.active > summary { background: rgba(255,255,255,.14); color: #fff; }
+.nav-menu {
+  position: absolute; top: calc(100% + .35rem); left: 0; min-width: 180px; z-index: 30;
+  background: var(--nav-bg); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: .35rem;
+  display: flex; flex-direction: column; box-shadow: 0 10px 24px rgba(0,0,0,.3);
+}
+@media (max-width: 860px) {
+  .nav-group > summary { padding: .75rem; font-size: 1rem; }
+  .nav-menu { position: static; border: 0; box-shadow: none; padding: 0 0 0 .75rem; }
+}

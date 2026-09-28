@@ -212,7 +212,7 @@ def test_modules_page_toggles_features(client):
     page = client.get("/admin/modules").get_data(as_text=True)
     assert "Abwesenheiten &amp; Urlaub" in page and "Team-Übersicht" in page
     # alles aktiv lassen außer Team, PDF und Abwesenheiten
-    on = {k: "1" for k in modules.MODULES if k not in ("team", "pdf_export", "absences")}
+    on = {k: "1" for k in modules.MODULES if k not in ("team", "pdf_export", "absences", "terminal")}
     resp = client.post("/admin/modules", data=on, follow_redirects=True)
     assert "3 Änderung(en) gespeichert" in resp.get_data(as_text=True)
     assert not modules.enabled("team") and not modules.enabled("absences")
@@ -286,3 +286,119 @@ def test_overtime_module_off(client):
     assert "Saldo" not in client.get("/team").get_data(as_text=True)
     pdf = client.get("/reports/pdf?user=team&period=month&ref=2026-02-03")
     assert pdf.status_code == 200 and pdf.data.startswith(b"%PDF")
+
+
+def _terminal_setup(require_pin=True):
+    from app.models import Terminal, TerminalCredential
+    modules.set_state("terminal", True)
+    user = make_user("max")
+    cred = TerminalCredential(user_id=user.id, badge_number="1001")
+    cred.set_pin("4711")
+    terminal = Terminal(name="Eingang", token="tok123", require_pin=require_pin)
+    db.session.add_all([cred, terminal])
+    db.session.commit()
+    return user, terminal
+
+
+def _ticket(html):
+    import re
+    return re.search(r'name="ticket" value="([^"]+)"', html).group(1)
+
+
+def test_terminal_stamp_flow(client):
+    user, _ = _terminal_setup()
+    assert "Personalnummer" in client.get("/terminal/tok123").get_data(as_text=True)
+    assert client.get("/terminal/falsch").status_code == 404
+    bad = client.post("/terminal/tok123", data={"badge": "1001", "pin": "0000"}).get_data(as_text=True)
+    assert "falsche PIN" in bad
+    page = client.post("/terminal/tok123", data={"badge": "1001", "pin": "4711"}).get_data(as_text=True)
+    assert "Hallo Max" in page and "Kommen" in page
+    done = client.post("/terminal/tok123/stamp", data={"ticket": _ticket(page), "action": "in"}).get_data(as_text=True)
+    assert "Eingestempelt" in done
+    entry = TimeEntry.query.one()
+    assert entry.user_id == user.id and entry.source == "terminal" and entry.end_time is None
+    page = client.post("/terminal/tok123", data={"badge": "1001", "pin": "4711"}).get_data(as_text=True)
+    assert "Gehen" in page
+    client.post("/terminal/tok123/stamp", data={"ticket": _ticket(page), "action": "out"})
+    assert TimeEntry.query.one().end_time is not None
+    # manipuliertes Ticket
+    assert client.post("/terminal/tok123/stamp", data={"ticket": "x", "action": "in"}).status_code == 400
+
+
+def test_terminal_pin_lockout_and_no_pin_mode(client):
+    _terminal_setup(require_pin=False)
+    page = client.post("/terminal/tok123", data={"badge": "1001"}).get_data(as_text=True)
+    assert "Hallo Max" in page
+    from app.models import Terminal
+    t = Terminal.query.one()
+    t.require_pin = True
+    db.session.commit()
+    for _ in range(5):
+        client.post("/terminal/tok123", data={"badge": "1001", "pin": "1111"})
+    locked = client.post("/terminal/tok123", data={"badge": "1001", "pin": "4711"}).get_data(as_text=True)
+    assert "Zu viele Fehlversuche" in locked
+
+
+def test_terminal_disabled_or_locked(client):
+    from app.models import Terminal
+    _terminal_setup()
+    Terminal.query.one().active = False
+    db.session.commit()
+    assert client.get("/terminal/tok123").status_code == 404
+    Terminal.query.one().active = True
+    modules.set_state("terminal", False)
+    db.session.commit()
+    assert client.get("/terminal/tok123").status_code == 404
+
+
+def test_terminal_admin_and_user_pin(client):
+    from app.models import Terminal, TerminalCredential
+    _admin_client(client)
+    assert client.get("/admin/terminals").status_code == 404  # Modul aus
+    modules.set_state("terminal", True)
+    db.session.commit()
+    client.post("/admin/terminals", data={"action": "create", "name": "Halle 1", "require_pin": "1"})
+    t = Terminal.query.one()
+    assert t.token and "Halle 1" in client.get("/admin/terminals").get_data(as_text=True)
+    old = t.token
+    client.post("/admin/terminals", data={"action": "regenerate", "id": t.id})
+    assert Terminal.query.one().token != old
+    resp = client.post("/admin/users/new", data={
+        "username": "neu", "full_name": "Neu", "role": "employee", "password": "geheim123",
+        "weekly_hours": "40", "vacation_days": "30", "wd0": "1", "active": "1",
+        "badge_number": "2002", "pin": "12"}, follow_redirects=True)
+    assert "4 bis 8 Ziffern" in resp.get_data(as_text=True)
+    client.post("/admin/users/new", data={
+        "username": "neu", "full_name": "Neu", "role": "employee", "password": "geheim123",
+        "weekly_hours": "40", "vacation_days": "30", "wd0": "1", "active": "1",
+        "badge_number": "2002", "pin": "1234"})
+    u = User.query.filter_by(username="neu").one()
+    assert u.terminal_credential.badge_number == "2002" and u.terminal_credential.check_pin("1234")
+    # Mitarbeiter ändert eigene PIN
+    client.post("/logout")
+    login(client, "neu", "geheim123")
+    client.post("/account", data={"action": "password", "old_password": "geheim123",
+                                  "new_password": "geheim1234", "new_password2": "geheim1234"})
+    client.post("/account", data={"action": "pin", "pin": "9876", "pin2": "9876", "password": "geheim1234"})
+    assert db.session.get(TerminalCredential, u.id).check_pin("9876")
+
+
+def test_terminal_only_mode():
+    from app import create_app
+    from app.cli import init_database
+
+    from .conftest import TestConfig
+
+    class TerminalConfig(TestConfig):
+        APP_MODE = "terminal"
+
+    app = create_app(TerminalConfig)
+    with app.app_context():
+        init_database(app)
+        c = app.test_client()
+        assert c.get("/login").status_code == 404
+        assert c.get("/admin/users").status_code == 404
+        assert c.get("/").status_code == 404 and "nicht freigeschaltet" in c.get("/").get_data(as_text=True)
+        assert c.get("/health").status_code == 200
+        db.session.remove()
+        db.drop_all()

@@ -68,3 +68,10 @@
   var refresh = document.body.getAttribute("data-refresh");
   if (refresh) { setTimeout(function () { window.location.reload(); }, parseInt(refresh, 10) * 1000); }
 })();
+
+// Verwaltungs-Dropdown schließen, wenn außerhalb geklickt wird
+document.addEventListener("click", function (e) {
+  document.querySelectorAll("details.nav-group[open]").forEach(function (d) {
+    if (!d.contains(e.target)) d.removeAttribute("open");
+  });
+});

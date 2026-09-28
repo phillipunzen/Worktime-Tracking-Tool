@@ -27,6 +27,25 @@
         <div class="hint">Für Benachrichtigungen zu Urlaubsanträgen (falls E-Mail-Versand eingerichtet ist).</div></div>
       <button class="btn" type="submit">Profil speichern</button>
     </form>
+    {% if module('terminal') %}
+    <hr style="border:0;border-top:1px solid var(--border);margin:1.25rem 0">
+    <h3>Stempelterminal</h3>
+    {% set cred = current_user.terminal_credential %}
+    {% if cred %}
+      <p class="small muted">Personalnummer: <strong>{{ cred.badge_number }}</strong> · PIN {{ 'hinterlegt' if cred.pin_hash else 'noch nicht gesetzt' }}</p>
+      <form method="post">
+        {{ csrf() }}<input type="hidden" name="action" value="pin">
+        <div class="form-grid">
+          <div class="field"><label>Neue PIN</label><input type="password" name="pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="new-password" required></div>
+          <div class="field"><label>PIN wiederholen</label><input type="password" name="pin2" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="new-password" required></div>
+        </div>
+        <div class="field"><label>Zur Bestätigung: dein Passwort</label><input type="password" name="password" autocomplete="current-password" required></div>
+        <button class="btn btn-light" type="submit">PIN speichern</button>
+      </form>
+    {% else %}
+      <p class="small muted">Dir ist noch keine Personalnummer zugeordnet – bitte an den Administrator wenden.</p>
+    {% endif %}
+    {% endif %}
     <hr style="border:0;border-top:1px solid var(--border);margin:1.25rem 0">
     <h3>Arbeitszeitmodell</h3>
     <p class="small muted">{{ current_user.weekly_hours|num }} h/Woche · {{ current_user.vacation_days|num }} Urlaubstage/Jahr · erfasst seit {{ current_user.tracking_start|d }}</p>

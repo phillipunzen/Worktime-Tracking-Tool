@@ -8,13 +8,15 @@ from .auth import MIN_PASSWORD_LENGTH
 from . import modules
 from .extensions import db
 from .modules import require_module
-from .models import ROLES, WEEKDAYS, Absence, AuditLog, Holiday, User, audit
+from .models import ROLES, WEEKDAYS, Absence, AuditLog, Holiday, TerminalCredential, User, audit
 from .permissions import admin_required, subordinate_ids
 from .utils import parse_date, parse_hours, today_local
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{2,64}$")
+BADGE_RE = re.compile(r"^[A-Za-z0-9-]{1,32}$")
+PIN_RE = re.compile(r"^[0-9]{4,8}$")
 
 STATES = {
     "": "nur bundesweite Feiertage",
@@ -86,6 +88,19 @@ def _apply_form(user, is_new):
     vacation = parse_hours(form.get("vacation_days"), None)
     if vacation is None or not 0 <= vacation <= 366:
         errors.append("Ungültige Anzahl Urlaubstage.")
+    terminal_on = modules.enabled("terminal")
+    badge = form.get("badge_number", "").strip()
+    pin = form.get("pin", "").strip()
+    if terminal_on:
+        if badge and not BADGE_RE.match(badge):
+            errors.append("Personalnummer: 1–32 Zeichen, nur Buchstaben, Ziffern und Minus.")
+        elif badge and TerminalCredential.query.filter(TerminalCredential.badge_number == badge,
+                                                       TerminalCredential.user_id != (user.id or 0)).first():
+            errors.append("Diese Personalnummer ist bereits vergeben.")
+        if pin and not PIN_RE.match(pin):
+            errors.append("Die PIN muss aus 4 bis 8 Ziffern bestehen.")
+        if pin and not badge:
+            errors.append("Für eine PIN wird eine Personalnummer benötigt.")
     if errors:
         for e in errors:
             flash(e, "error")
@@ -107,7 +122,26 @@ def _apply_form(user, is_new):
         user.set_password(password)
         user.failed_logins = 0
         user.locked_until = None
+    if terminal_on:
+        _apply_terminal_credential(user, badge, pin, remove_pin=bool(form.get("remove_pin")))
     return True
+
+
+def _apply_terminal_credential(user, badge, pin, remove_pin=False):
+    cred = user.terminal_credential
+    if not badge:
+        if cred is not None:
+            user.terminal_credential = None
+        return
+    if cred is None:
+        cred = user.terminal_credential = TerminalCredential(badge_number=badge)
+    cred.badge_number = badge
+    if pin:
+        cred.set_pin(pin)
+        cred.failed_attempts = 0
+        cred.locked_until = None
+    elif remove_pin:
+        cred.set_pin(None)
 
 
 @bp.route("/users/new", methods=["GET", "POST"])
@@ -264,3 +298,52 @@ def modules_page():
     return render_template("admin/modules.html", groups=groups, own_state=modules.own_state,
                            enabled=modules.enabled, all_modules=modules.MODULES,
                            smtp_configured=modules.smtp_configured())
+
+
+# ---------------------------------------------------------------- Stempelterminals
+
+@bp.route("/terminals", methods=["GET", "POST"])
+@require_module("terminal")
+def terminals():
+    import secrets
+
+    from .models import Terminal
+    from .terminal import terminal_url
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        terminal = db.session.get(Terminal, request.form.get("id", type=int)) if action != "create" else None
+        if action == "create":
+            name = request.form.get("name", "").strip()[:100]
+            if not name:
+                flash("Bitte einen Namen angeben.", "error")
+                return redirect(url_for("admin.terminals"))
+            terminal = Terminal(name=name, token=secrets.token_urlsafe(24),
+                                require_pin=bool(request.form.get("require_pin")))
+            db.session.add(terminal)
+            audit(current_user, "Terminal angelegt", None, name)
+            flash(f"Terminal „{name}“ angelegt. Öffne den Link auf dem Gerät und speichere ihn als Lesezeichen.",
+                  "success")
+        elif terminal is None:
+            abort(404)
+        elif action == "toggle":
+            terminal.active = not terminal.active
+            audit(current_user, "Terminal " + ("aktiviert" if terminal.active else "gesperrt"), None, terminal.name)
+        elif action == "pin":
+            terminal.require_pin = not terminal.require_pin
+            audit(current_user, "Terminal-PIN " + ("verlangt" if terminal.require_pin else "abgeschaltet"),
+                  None, terminal.name)
+        elif action == "regenerate":
+            terminal.token = secrets.token_urlsafe(24)
+            audit(current_user, "Terminal-Link erneuert", None, terminal.name)
+            flash("Neuer Link erzeugt – der alte funktioniert nicht mehr.", "success")
+        elif action == "delete":
+            audit(current_user, "Terminal gelöscht", None, terminal.name)
+            db.session.delete(terminal)
+        db.session.commit()
+        return redirect(url_for("admin.terminals"))
+
+    rows = Terminal.query.order_by(Terminal.name).all()
+    return render_template("admin/terminals.html", terminals=rows, url_for_terminal=terminal_url,
+                           without_badge=User.query.filter(User.active == db.true())
+                           .filter(~User.id.in_(db.session.query(TerminalCredential.user_id))).count())

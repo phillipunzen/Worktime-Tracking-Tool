@@ -28,10 +28,16 @@
         <a href="{{ url_for('reports.index') }}" class="{{ 'active' if ep.startswith('reports.') }}">Berichte</a>
         {% if show_team %}<a href="{{ url_for('main.team') }}" class="{{ 'active' if ep == 'main.team' }}">Team</a>{% endif %}
         {% if current_user.is_admin %}
-          <a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep.startswith('admin.user') }}">Benutzer</a>
-          {% if module('holidays') %}<a href="{{ url_for('admin.holidays') }}" class="{{ 'active' if ep == 'admin.holidays' }}">Feiertage</a>{% endif %}
-          {% if module('audit') %}<a href="{{ url_for('admin.audit_log') }}" class="{{ 'active' if ep == 'admin.audit_log' }}">Protokoll</a>{% endif %}
-          <a href="{{ url_for('admin.modules_page') }}" class="{{ 'active' if ep == 'admin.modules_page' }}">Module</a>
+          <details class="nav-group {{ 'active' if ep.startswith('admin.') }}">
+            <summary>Verwaltung</summary>
+            <div class="nav-menu">
+              <a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep.startswith('admin.user') }}">Benutzer</a>
+              {% if module('terminal') %}<a href="{{ url_for('admin.terminals') }}" class="{{ 'active' if ep == 'admin.terminals' }}">Terminals</a>{% endif %}
+              {% if module('holidays') %}<a href="{{ url_for('admin.holidays') }}" class="{{ 'active' if ep == 'admin.holidays' }}">Feiertage</a>{% endif %}
+              {% if module('audit') %}<a href="{{ url_for('admin.audit_log') }}" class="{{ 'active' if ep == 'admin.audit_log' }}">Protokoll</a>{% endif %}
+              <a href="{{ url_for('admin.modules_page') }}" class="{{ 'active' if ep == 'admin.modules_page' }}">Module</a>
+            </div>
+          </details>
         {% endif %}
         <span class="spacer"></span>
         <a href="{{ url_for('auth.account') }}" class="{{ 'active' if ep == 'auth.account' }}">{{ current_user.full_name }}</a>

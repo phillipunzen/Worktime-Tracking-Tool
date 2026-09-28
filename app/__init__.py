@@ -46,8 +46,12 @@ def create_app(config_object=None):
     from .entries import bp as entries_bp
     from .main import bp as main_bp
     from .reports import bp as reports_bp
-    for blueprint in (auth_bp, main_bp, entries_bp, absences_bp, reports_bp, admin_bp):
+    from .terminal import bp as terminal_bp
+    from .terminal import restrict_to_terminal
+    for blueprint in (auth_bp, main_bp, entries_bp, absences_bp, reports_bp, admin_bp, terminal_bp):
         app.register_blueprint(blueprint)
+    if app.config.get("APP_MODE") == "terminal":
+        restrict_to_terminal(app)
 
     from .cli import register_cli
     register_cli(app)

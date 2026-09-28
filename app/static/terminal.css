@@ -1,0 +1,74 @@
+/* Stempelterminal – Vollbild-Kioskansicht, bewusst immer dunkel und mit großen Touch-Flächen */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body.kiosk {
+  margin: 0; background: radial-gradient(circle at top, #16213a, #0b1120 65%); color: #e2e8f0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  display: flex; flex-direction: column; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.kiosk-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.5rem; }
+.kiosk-brand { display: flex; align-items: center; gap: .6rem; font-weight: 700; flex: 1; }
+.kiosk-brand img { width: 32px; height: 32px; }
+.kiosk-clock { text-align: center; font-variant-numeric: tabular-nums; }
+.kiosk-clock span { display: block; font-size: 2.4rem; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.kiosk-clock small { color: #94a3b8; }
+.kiosk-name { flex: 1; text-align: right; color: #94a3b8; }
+.kiosk-main { flex: 1; display: grid; place-items: center; padding: 1rem; }
+.kiosk-card {
+  width: 100%; max-width: 460px; background: #131c2e; border: 1px solid #243049; border-radius: 22px;
+  padding: 1.75rem; box-shadow: 0 20px 50px rgba(0, 0, 0, .35); text-align: center;
+}
+.kiosk-card h1 { margin: 0 0 .25rem; font-size: 1.7rem; }
+.kiosk-sub { color: #94a3b8; margin: 0 0 1.25rem; }
+.kiosk-error { background: #7f1d1d; color: #fee2e2; padding: .75rem 1rem; border-radius: 12px; margin-bottom: 1rem; font-weight: 600; }
+.kiosk-fields { display: grid; gap: .75rem; margin-bottom: 1rem; text-align: left; }
+.kiosk-fields label { font-size: .85rem; color: #94a3b8; font-weight: 600; }
+.kiosk-fields input {
+  display: block; width: 100%; margin-top: .3rem; padding: .8rem 1rem; font-size: 1.6rem; letter-spacing: .15em;
+  background: #0b1120; color: #fff; border: 2px solid #243049; border-radius: 12px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.kiosk-fields input:focus { outline: none; border-color: #3b82f6; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin-bottom: 1rem; }
+.keypad button {
+  font-size: 1.7rem; font-weight: 700; padding: .9rem 0; border-radius: 14px; border: 0; cursor: pointer;
+  background: #1e293b; color: #fff; touch-action: manipulation;
+}
+.keypad button:active { background: #334155; transform: scale(.97); }
+.keypad .muted-key { color: #94a3b8; }
+.kiosk-btn {
+  display: flex; align-items: center; justify-content: center; width: 100%; padding: 1.2rem; border: 0; border-radius: 16px;
+  font-size: 1.45rem; font-weight: 800; color: #fff; cursor: pointer; text-decoration: none; touch-action: manipulation;
+}
+.kiosk-btn:active { transform: scale(.98); }
+.kiosk-ok { background: #2563eb; }
+.kiosk-btn.in { background: #16a34a; }
+.kiosk-btn.pause { background: #d97706; }
+.kiosk-btn.out { background: #dc2626; }
+.kiosk-actions { display: grid; gap: .75rem; }
+.kiosk-cancel { display: inline-block; margin-top: 1.1rem; color: #94a3b8; font-size: 1.05rem; padding: .5rem 1rem; }
+.kiosk-pill { display: inline-block; padding: .3rem .9rem; border-radius: 999px; font-weight: 700; }
+.kiosk-pill.working { background: #14532d; color: #86efac; }
+.kiosk-pill.pause { background: #78350f; color: #fcd34d; }
+.kiosk-pill.off { background: #1e293b; color: #cbd5e1; }
+.kiosk-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: 0 0 1.25rem; }
+.kiosk-stats div { background: #0b1120; border-radius: 14px; padding: .8rem; display: flex; flex-direction: column; }
+.kiosk-stats span { color: #94a3b8; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+.kiosk-stats strong { font-size: 1.8rem; font-variant-numeric: tabular-nums; }
+.kiosk-stats small { color: #94a3b8; }
+.kiosk-icon { width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 1rem; display: grid; place-items: center; font-size: 3rem; font-weight: 800; }
+.kiosk-done.ok .kiosk-icon { background: #16a34a; }
+.kiosk-done.fail .kiosk-icon { background: #dc2626; }
+.kiosk-countdown { color: #64748b; font-size: .85rem; margin-top: .75rem; }
+
+@media (max-width: 560px) {
+  .kiosk-head { padding: .75rem 1rem; }
+  .kiosk-name { display: none; }
+  .kiosk-clock span { font-size: 1.8rem; }
+  .kiosk-card { padding: 1.25rem; border-radius: 18px; }
+  .keypad button { padding: .75rem 0; }
+}
+@media (min-width: 900px) and (min-height: 700px) {
+  .kiosk-card { max-width: 520px; }
+}

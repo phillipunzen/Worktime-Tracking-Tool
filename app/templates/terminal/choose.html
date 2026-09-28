@@ -1,0 +1,30 @@
+{% extends "terminal/_layout.html" %}
+{% block body_attrs %}data-autoreturn="{{ url_for('terminal.index', token=terminal.token) }}" data-autoreturn-after="{{ timeout - 5 }}"{% endblock %}
+{% block content %}
+<div class="kiosk-card">
+  <h1>Hallo {{ user.full_name }}</h1>
+  <p class="kiosk-sub">
+    {% if status == 'working' %}<span class="kiosk-pill working">Anwesend seit {{ entry.start_time|t }}</span>
+    {% elif status == 'pause' %}<span class="kiosk-pill pause">Pause seit {{ entry.end_time|t }}</span>
+    {% else %}<span class="kiosk-pill off">Nicht eingestempelt</span>{% endif %}
+  </p>
+  <div class="kiosk-stats">
+    <div><span>Heute</span><strong>{{ today.work_minutes|hm }}</strong></div>
+    <div><span>Diese Woche</span><strong>{{ week.work_minutes|hm }}</strong><small>von {{ week.target_minutes|hm }}</small></div>
+  </div>
+  <form method="post" action="{{ url_for('terminal.stamp', token=terminal.token) }}" class="kiosk-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="ticket" value="{{ ticket }}">
+    {% if status == 'off' %}
+      <button class="kiosk-btn in" name="action" value="in">▶ Kommen</button>
+    {% elif status == 'working' %}
+      {% if module('pause_button') %}<button class="kiosk-btn pause" name="action" value="pause">❚❚ Pause</button>{% endif %}
+      <button class="kiosk-btn out" name="action" value="out">■ Gehen</button>
+    {% else %}
+      <button class="kiosk-btn in" name="action" value="resume">▶ Weiter</button>
+      <button class="kiosk-btn out" name="action" value="out">■ Gehen</button>
+    {% endif %}
+  </form>
+  <a class="kiosk-cancel" href="{{ url_for('terminal.index', token=terminal.token) }}">Abbrechen</a>
+</div>
+{% endblock %}

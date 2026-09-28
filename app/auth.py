@@ -1,9 +1,11 @@
+import re
 from datetime import timedelta
 from urllib.parse import urlparse
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
+from . import modules
 from .extensions import db
 from .models import User, audit
 from .utils import now_local
@@ -92,6 +94,22 @@ def account():
                 db.session.commit()
                 flash("Passwort geändert.", "success")
                 return redirect(url_for("main.dashboard"))
+        elif action == "pin" and modules.enabled("terminal") and current_user.terminal_credential:
+            pin = request.form.get("pin", "").strip()
+            if not current_user.check_password(request.form.get("password", "")):
+                flash("Das Passwort ist falsch.", "error")
+            elif not re.fullmatch(r"[0-9]{4,8}", pin):
+                flash("Die PIN muss aus 4 bis 8 Ziffern bestehen.", "error")
+            elif pin != request.form.get("pin2", "").strip():
+                flash("Die PINs stimmen nicht überein.", "error")
+            else:
+                cred = current_user.terminal_credential
+                cred.set_pin(pin)
+                cred.failed_attempts = 0
+                cred.locked_until = None
+                audit(current_user, "Terminal-PIN geändert", current_user)
+                db.session.commit()
+                flash("Terminal-PIN gespeichert.", "success")
         return redirect(url_for("auth.account"))
 
     return render_template("account.html", min_len=MIN_PASSWORD_LENGTH)

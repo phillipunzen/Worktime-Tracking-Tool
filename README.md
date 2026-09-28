@@ -8,6 +8,7 @@ Gespeichert wird in **MySQL** oder **Microsoft SQL Server**.
 
 **Für Mitarbeiter**
 - Stempeluhr mit **Kommen / Pause / Weiter / Gehen** und Live-Zeitanzeige; zu jeder Buchung ist eine Notiz möglich (z. B. Projekt)
+- **Stempelterminal** für ein gemeinsames Tablet am Eingang: Personalnummer und PIN eintippen, ohne eigenen Login; auf Wunsch unter eigener Adresse bzw. eigenem Port
 - Übersicht über heute und die laufende Woche, Wochensaldo, **Überstundenkonto** und **Resturlaub**
 - Zeiten nachtragen und korrigieren; nachträgliche Einträge werden gekennzeichnet und protokolliert (als Modul abschaltbar)
 - **Abwesenheiten**: Urlaub, Krank, Sonderurlaub, Fortbildung und Freizeitausgleich, auch als halbe Tage
@@ -41,7 +42,8 @@ Die gespeicherten Daten bleiben erhalten.
 
 | Bereich | Modul | Wirkung |
 |---|---|---|
-| Zeiterfassung | Pausen-Stempel | Button Pause/Weiter an der Stempeluhr; ohne das Modul gibt es nur Kommen und Gehen |
+| Zeiterfassung | Stempelterminal | Gemeinsames Gerät zum Stempeln per Personalnummer und PIN (siehe unten); standardmäßig aus |
+| | Pausen-Stempel | Button Pause/Weiter an der Stempeluhr; ohne das Modul gibt es nur Kommen und Gehen |
 | | Notizen beim Stempeln | Freitext, z. B. Projekt, direkt an der Stempeluhr |
 | | Zeiten selbst nachtragen | Mitarbeiter dürfen eigene Zeiten korrigieren; Vorgesetzte und Admins dürfen das immer |
 | | Arbeitszeitgesetz-Hinweise | Warnungen zu Pausen und Höchstarbeitszeit |
@@ -61,6 +63,40 @@ Die Standardwerte vor dem ersten Speichern lassen sich per Umgebungsvariable set
 z. B. `MODULE_TEAM=false` oder `MODULE_ABSENCE_APPROVAL=false`.
 Bei Docker Compose gehören diese Variablen in den Abschnitt `environment:` des `app`-Dienstes.
 Sobald ein Modul auf der Modulseite gespeichert wurde, gilt der Wert aus der Datenbank.
+
+## Stempelterminal
+
+Das Terminal ist für ein gemeinsames Gerät gedacht, etwa ein Tablet am Eingang oder einen PC in der Werkstatt.
+Mitarbeiter stempeln dort ohne eigenen Login. Sie geben ihre **Personalnummer und PIN** über ein großes Touch-Tastenfeld ein
+und tippen dann auf **Kommen**, **Pause**, **Weiter** oder **Gehen**. Danach springt die Anzeige automatisch zum Start zurück.
+
+**Einrichten**
+1. Unter *Module* das Modul **Stempelterminal** aktivieren; standardmäßig ist es aus.
+2. Unter *Terminals* ein Terminal anlegen, z. B. „Eingang Halle 1“. Jedes Terminal bekommt einen eigenen geheimen Link der Form
+   `https://<host>/terminal/<schlüssel>`. Diesen Link auf dem Gerät öffnen und als Lesezeichen oder Home-Bildschirm-App speichern.
+3. Unter *Benutzer* jedem Mitarbeiter eine **Personalnummer** geben. Die **PIN** (4–8 Ziffern) vergibt der Admin,
+   oder der Mitarbeiter setzt sie selbst unter *Mein Konto*.
+
+**Sicherheit**
+- Nach 5 falschen PINs ist die Nummer für 5 Minuten gesperrt.
+- Wird ein Gerät gestohlen, den Link unter *Terminals* erneuern oder das Terminal sperren.
+- Pro Terminal kann die PIN abgeschaltet werden, z. B. mit einem RFID-/Barcode-Ausweisleser, der wie eine Tastatur die Nummer eintippt und Enter sendet.
+  Dann genügt die Ausweisnummer.
+- Terminal-Buchungen erscheinen wie normale Stempelungen und sind intern als „terminal“ gekennzeichnet.
+
+**Unter eigener Adresse / eigenem Port betreiben**
+
+Das Terminal kann zusätzlich als eigener Container laufen, der **ausschließlich** die Terminal-Seiten ausliefert.
+Login, Verwaltung und Berichte sind dort nicht erreichbar.
+So lässt sich z. B. die Web-Oberfläche per Reverse-Proxy ins Internet stellen, während das Terminal nur im Firmennetz erreichbar ist.
+
+```bash
+# in .env: TERMINAL_PORT=8081 und TERMINAL_BASE_URL=http://192.168.1.10:8081
+docker compose --profile terminal up -d
+```
+
+Die Links unter *Terminals* zeigen dann auf `http://192.168.1.10:8081/terminal/<schlüssel>`.
+Technisch ist es derselbe Container wie die App, nur mit `APP_MODE=terminal`; beide nutzen dieselbe Datenbank.
 
 ## Schnellstart (MySQL)
 
@@ -115,6 +151,8 @@ Alternativ kann eine vollständige SQLAlchemy-URL übergeben werden, etwa `DATAB
 | `COMPANY_NAME` | `Zeiterfassung` | Name in der Oberfläche und auf den PDFs |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin` | Erster Administrator; wird nur angelegt, solange die Datenbank leer ist |
 | `ALLOW_SELF_EDIT` | `true` | Standardwert für das Modul „Zeiten selbst nachtragen“ |
+| `APP_MODE` | `full` | `terminal` = Container liefert nur das Stempelterminal aus |
+| `TERMINAL_BASE_URL` | – | Adresse des separaten Terminal-Containers, z. B. `http://192.168.1.10:8081` |
 | `MODULE_<NAME>` | – | Standardwert eines Moduls, z. B. `MODULE_TEAM=false` (siehe [Module](#module)) |
 | `BEHIND_PROXY` | `false` | `true`, wenn die App hinter nginx, Traefik oder Caddy läuft |
 | `SESSION_COOKIE_SECURE` | `false` | `true` bei Zugriff über HTTPS |

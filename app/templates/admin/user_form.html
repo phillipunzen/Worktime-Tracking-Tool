@@ -50,6 +50,20 @@
     <div class="hint">Die Wochenstunden werden gleichmäßig auf diese Tage verteilt.</div>
   </div>
 
+  {% if module('terminal') %}
+  {% set cred = user.terminal_credential %}
+  <h2 style="margin-top:.5rem">Stempelterminal</h2>
+  <div class="form-grid">
+    <div class="field"><label>Personalnummer / Ausweisnummer</label>
+      <input type="text" name="badge_number" autocomplete="off" pattern="[A-Za-z0-9\-]{1,32}" value="{{ val('badge_number', cred.badge_number if cred else '') }}">
+      <div class="hint">Wird am Terminal eingetippt oder per Ausweisleser eingelesen. Leer = kein Terminal-Zugang.</div></div>
+    <div class="field"><label>{{ 'Neue PIN' if cred and cred.pin_hash else 'PIN' }}</label>
+      <input type="password" name="pin" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{4,8}" maxlength="8">
+      <div class="hint">4–8 Ziffern. {% if cred and cred.pin_hash %}Eine PIN ist hinterlegt – leer lassen, um sie zu behalten.{% else %}Der Mitarbeiter kann sie auch selbst unter „Mein Konto“ setzen.{% endif %}</div></div>
+  </div>
+  {% if cred and cred.pin_hash %}<div class="field"><label class="check"><input type="checkbox" name="remove_pin" value="1"> PIN entfernen</label></div>{% endif %}
+  {% endif %}
+
   <h2 style="margin-top:.5rem">Status</h2>
   <div class="checks" style="margin-bottom:1rem">
     <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if (f.get('active') if f else user.active) }}> Aktiv (darf sich anmelden)</label>

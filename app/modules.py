@@ -41,6 +41,9 @@ MODULES = {m.key: m for m in [
            "Zeiterfassung"),
     Module("self_edit", "Zeiten selbst nachtragen", "Mitarbeiter dürfen eigene Zeiten nachtragen und korrigieren. "
            "Vorgesetzte und Admins dürfen das immer.", "Zeiterfassung", env_default="ALLOW_SELF_EDIT"),
+    Module("terminal", "Stempelterminal", "Gemeinsames Gerät (z. B. Tablet am Eingang) zum Stempeln per "
+           "Personalnummer und PIN – ohne Login. Terminals werden unter Admin > Terminals freigeschaltet.",
+           "Zeiterfassung", default=False),
     Module("arbzg", "Arbeitszeitgesetz-Hinweise", "Warnungen bei zu kurzer Pause (6 h / 9 h) und mehr als 10 h pro Tag.",
            "Zeiterfassung"),
     Module("overtime", "Überstundenkonto", "Gesamtsaldo seit Erfassungsbeginn auf Startseite, Team-Übersicht, Berichten und PDF.",

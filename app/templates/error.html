@@ -10,6 +10,6 @@
 {% block public %}
 <div class="login-wrap"><div class="card login-card empty">
   <h1>{{ code }}</h1><p>{{ message }}</p>
-  <a class="btn" href="{{ url_for('auth.login') }}">Zur Anmeldung</a>
+  {% if config.APP_MODE != 'terminal' %}<a class="btn" href="{{ url_for('auth.login') }}">Zur Anmeldung</a>{% endif %}
 </div></div>
 {% endblock %}

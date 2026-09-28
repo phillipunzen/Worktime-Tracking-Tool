@@ -67,35 +67,35 @@ def dashboard():
     )
 
 
-@bp.route("/stamp", methods=["POST"])
-@login_required
-def stamp():
-    action = request.form.get("action")
+def perform_stamp(user, action, note=None, source="stamp"):
+    """Kommen/Pause/Weiter/Gehen buchen. -> (erfolgreich, Meldung). Commit übernimmt der Aufrufer."""
     now = now_local()
-    status, entry = current_status(current_user, now)
-    note = None
-    if modules.enabled("stamp_notes"):
-        note = (request.form.get("note") or "").strip()[:500] or None
+    status, entry = current_status(user, now)
     if action == "pause" and not modules.enabled("pause_button"):
         action = None
 
     if action in ("in", "resume") and status != "working":
-        db.session.add(TimeEntry(user_id=current_user.id, start_time=now, source="stamp", note=note))
-        flash("Pause beendet – weiter geht's!" if status == "pause" else "Eingestempelt. Guten Start!",
-              "success")
-    elif action in ("pause", "out") and status == "working":
-        if now < entry.start_time:
-            now = entry.start_time
-        entry.end_time = now
+        db.session.add(TimeEntry(user_id=user.id, start_time=now, source=source, note=note))
+        return True, "Pause beendet – weiter geht's!" if status == "pause" else "Eingestempelt. Guten Start!"
+    if action in ("pause", "out") and status == "working":
+        entry.end_time = max(now, entry.start_time)
         entry.end_reason = action
         if note:
             entry.note = f"{entry.note} / {note}" if entry.note else note
-        flash("Pause gestartet." if action == "pause" else "Ausgestempelt. Schönen Feierabend!", "success")
-    else:
-        flash("Diese Aktion ist im aktuellen Status nicht möglich.", "error")
-        return redirect(url_for("main.dashboard"))
+        return True, "Pause gestartet." if action == "pause" else "Ausgestempelt. Schönen Feierabend!"
+    return False, "Diese Aktion ist im aktuellen Status nicht möglich."
 
-    db.session.commit()
+
+@bp.route("/stamp", methods=["POST"])
+@login_required
+def stamp():
+    note = None
+    if modules.enabled("stamp_notes"):
+        note = (request.form.get("note") or "").strip()[:500] or None
+    ok, message = perform_stamp(current_user, request.form.get("action"), note)
+    if ok:
+        db.session.commit()
+    flash(message, "success" if ok else "error")
     return redirect(url_for("main.dashboard"))
 
 

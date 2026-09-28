@@ -50,6 +50,12 @@ class Config:
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
     ADMIN_FULLNAME = os.environ.get("ADMIN_FULLNAME", "Administrator")
 
+    # full = komplette Anwendung, terminal = nur das Stempelterminal ausliefern
+    APP_MODE = os.environ.get("APP_MODE", "full").strip().lower()
+    # Öffentliche Adresse des Terminals, falls es unter einer anderen URL/Port läuft,
+    # z. B. http://192.168.1.10:8081 – wird für die Links unter Admin > Terminals verwendet
+    TERMINAL_BASE_URL = os.environ.get("TERMINAL_BASE_URL", "").strip() or None
+
     BEHIND_PROXY = env_bool("BEHIND_PROXY", False)
     SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)
     SESSION_COOKIE_HTTPONLY = True
