@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ 'Benutzer anlegen' if is_new else user.full_name }}{% endblock %}
+{% block content %}
+{% set f = request.form if request.method == 'POST' else None %}
+{% macro val(name, default) %}{{ f.get(name, '') if f else (default if default is not none else '') }}{% endmacro %}
+{% set wd = user.workday_list %}
+<div class="page-head">
+  <div><h1>{{ 'Benutzer anlegen' if is_new else 'Benutzer bearbeiten' }}</h1>{% if not is_new %}<p class="muted">{{ user.full_name }} · angelegt {{ user.created_at|d }}</p>{% endif %}</div>
+</div>
+<form method="post" class="card">
+  {{ csrf() }}
+  <h2>Stammdaten</h2>
+  <div class="form-grid">
+    <div class="field"><label>Name</label><input type="text" name="full_name" required value="{{ val('full_name', user.full_name) }}"></div>
+    <div class="field"><label>Benutzername</label><input type="text" name="username" required autocapitalize="none" pattern="[A-Za-z0-9._\-]{2,64}" value="{{ val('username', user.username) }}"></div>
+    <div class="field"><label>E-Mail</label><input type="email" name="email" value="{{ val('email', user.email) }}"></div>
+  </div>
+  <div class="form-grid">
+    <div class="field"><label>Rolle</label>
+      <select name="role">{% for key, label in roles.items() %}<option value="{{ key }}" {{ 'selected' if (f.get('role') if f else user.role) == key }}>{{ label }}</option>{% endfor %}</select>
+      <div class="hint">Mitarbeiter stempeln nur. Vorgesetzte sehen zusätzlich die Zeiten ihrer Mitarbeiter. Administratoren sehen alles.</div></div>
+    <div class="field"><label>Vorgesetzte/r</label>
+      <select name="supervisor_id">
+        <option value="">– keine/r –</option>
+        {% set sel = (f.get('supervisor_id')|int if f and f.get('supervisor_id') else user.supervisor_id) %}
+        {% for s in supervisors %}<option value="{{ s.id }}" {{ 'selected' if s.id == sel }}>{{ s.full_name }} ({{ s.role_label }})</option>{% endfor %}
+      </select>
+      <div class="hint">Darf die Zeiten sehen/korrigieren und Urlaub genehmigen.</div></div>
+    <div class="field"><label>{{ 'Passwort' if is_new else 'Neues Passwort' }}</label>
+      <input type="password" name="password" autocomplete="new-password" minlength="{{ min_len }}" {{ 'required' if is_new }}>
+      <div class="hint">{{ 'Mindestens ' ~ min_len ~ ' Zeichen.' if is_new else 'Leer lassen, um das Passwort nicht zu ändern.' }}</div></div>
+  </div>
+
+  <h2 style="margin-top:.5rem">Arbeitszeitmodell</h2>
+  <div class="form-grid">
+    <div class="field"><label>Wochenstunden</label><input type="text" inputmode="decimal" name="weekly_hours" required value="{{ val('weekly_hours', user.weekly_hours|num) }}"></div>
+    <div class="field"><label>Urlaubstage pro Jahr</label><input type="text" inputmode="decimal" name="vacation_days" required value="{{ val('vacation_days', user.vacation_days|num) }}"></div>
+    <div class="field"><label>Beginn der Zeiterfassung</label><input type="date" name="tracking_start" value="{{ val('tracking_start', user.tracking_start|iso) }}">
+      <div class="hint">Ab diesem Tag zählt die Sollzeit.</div></div>
+    <div class="field"><label>Übertrag Überstunden (h)</label><input type="text" name="initial_balance" value="{{ val('initial_balance', ('%.2f'|format((user.initial_balance_minutes or 0) / 60)).replace('.', ',')) }}">
+      <div class="hint">z. B. 12,5 oder -3:30</div></div>
+  </div>
+  <div class="field"><label>Arbeitstage</label>
+    <div class="checks">
+      {% for name in weekdays %}
+        <label class="check"><input type="checkbox" name="wd{{ loop.index0 }}" value="1" {{ 'checked' if (f.get('wd' ~ loop.index0) if f else loop.index0 in wd) }}> {{ name }}</label>
+      {% endfor %}
+    </div>
+    <div class="hint">Die Wochenstunden werden gleichmäßig auf diese Tage verteilt.</div>
+  </div>
+
+  <h2 style="margin-top:.5rem">Status</h2>
+  <div class="checks" style="margin-bottom:1rem">
+    <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if (f.get('active') if f else user.active) }}> Aktiv (darf sich anmelden)</label>
+    <label class="check"><input type="checkbox" name="must_change_password" value="1" {{ 'checked' if (f.get('must_change_password') if f else user.must_change_password) }}> Passwort beim nächsten Login ändern</label>
+  </div>
+  <div class="btn-row">
+    <button class="btn" type="submit">Speichern</button>
+    <a class="btn btn-light" href="{{ url_for('admin.users') }}">Abbrechen</a>
+  </div>
+</form>
+
+{% if not is_new and user.id != current_user.id %}
+<div class="card danger-zone">
+  <details>
+    <summary>Benutzer endgültig löschen</summary>
+    <p class="small">Löscht den Benutzer inklusive <strong>aller Zeiteinträge und Abwesenheiten</strong>. Tipp: Ausgeschiedene Mitarbeiter besser nur deaktivieren – dann bleiben die Daten für Auswertungen erhalten.</p>
+    <form method="post" action="{{ url_for('admin.user_delete', user_id=user.id) }}" class="filters">
+      {{ csrf() }}
+      <div class="field"><label>Zur Bestätigung Benutzernamen „{{ user.username }}“ eingeben</label><input type="text" name="confirm" autocapitalize="none" required></div>
+      <button class="btn btn-danger" type="submit">Endgültig löschen</button>
+    </form>
+  </details>
+</div>
+{% endif %}
+{% endblock %}

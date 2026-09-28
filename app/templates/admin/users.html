@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Benutzer{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Benutzerverwaltung</h1><p class="muted">{{ users|length }} Benutzer</p></div>
+  <div class="btn-row">
+    {% if show_inactive %}<a class="btn btn-light" href="{{ url_for('admin.users') }}">Nur aktive</a>
+    {% else %}<a class="btn btn-light" href="{{ url_for('admin.users', inactive=1) }}">Auch inaktive zeigen</a>{% endif %}
+    <a class="btn" href="{{ url_for('admin.user_new') }}">+ Benutzer anlegen</a>
+  </div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Name</th><th>Benutzername</th><th>Rolle</th><th>Vorgesetzte/r</th><th class="num">Std./Woche</th><th class="num">Urlaub</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td data-label="Name"><strong>{{ u.full_name }}</strong>{% if u.email %}<div class="small muted">{{ u.email }}</div>{% endif %}</td>
+        <td data-label="Benutzername">{{ u.username }}</td>
+        <td data-label="Rolle"><span class="tag {{ 'tag-red' if u.role == 'admin' else ('tag-blue' if u.role == 'supervisor') }}">{{ u.role_label }}</span></td>
+        <td data-label="Vorgesetzte/r">{{ u.supervisor.full_name if u.supervisor else '–' }}</td>
+        <td data-label="Std./Woche" class="num">{{ u.weekly_hours|num }}</td>
+        <td data-label="Urlaub" class="num">{{ u.vacation_days|num }}</td>
+        <td data-label="Status">{% if u.active %}<span class="tag tag-green">aktiv</span>{% else %}<span class="tag">inaktiv</span>{% endif %}</td>
+        <td data-label="" class="right"><a class="btn btn-light btn-sm" href="{{ url_for('admin.user_edit', user_id=u.id) }}">Bearbeiten</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

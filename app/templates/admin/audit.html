@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Protokoll{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Änderungsprotokoll</h1><p class="muted">Alle Korrekturen, Genehmigungen und Verwaltungsaktionen</p></div>
+</div>
+<div class="card">
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Zeitpunkt</th><th>Wer</th><th>Aktion</th><th>Betrifft</th><th>Details</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td data-label="Zeitpunkt" class="nowrap">{{ r.created_at|dt }}</td>
+        <td data-label="Wer">{{ r.actor_name }}</td>
+        <td data-label="Aktion">{{ r.action_name }}</td>
+        <td data-label="Betrifft">{{ r.target_name or '' }}</td>
+        <td data-label="Details" class="small">{{ r.details or '' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="btn-row" style="margin-top:1rem">
+    {% if page > 1 %}<a class="btn btn-light btn-sm" href="{{ url_for('admin.audit_log', page=page-1) }}">‹ neuer</a>{% endif %}
+    {% if has_next %}<a class="btn btn-light btn-sm" href="{{ url_for('admin.audit_log', page=page+1) }}">älter ›</a>{% endif %}
+  </div>
+  {% else %}<p class="empty">Noch keine Einträge.</p>{% endif %}
+</div>
+{% endblock %}

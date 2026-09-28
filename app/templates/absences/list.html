@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, absence_tag, status_tag, user_select %}
+{% block title %}Abwesenheiten{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Abwesenheiten</h1><p class="muted">Urlaub, Krankheit, Freizeitausgleich &amp; Co.</p></div>
+</div>
+
+{% if pending %}
+<div class="card" style="border-color: var(--warning)">
+  <h2>Offene Anträge ({{ pending|length }})</h2>
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Mitarbeiter</th><th>Art</th><th>Zeitraum</th><th class="num">Tage</th><th>Bemerkung</th><th></th></tr></thead>
+    <tbody>
+    {% for a in pending %}
+      <tr>
+        <td data-label="Mitarbeiter"><strong>{{ a.user.full_name }}</strong></td>
+        <td data-label="Art">{{ absence_tag(a) }}</td>
+        <td data-label="Zeitraum" class="nowrap">{{ a.start_date|d }}{% if a.end_date != a.start_date %} – {{ a.end_date|d }}{% endif %}</td>
+        <td data-label="Tage" class="num">{{ workdays[a.id]|num }}</td>
+        <td data-label="Bemerkung">{{ a.note or '' }}</td>
+        <td data-label="" class="right nowrap">
+          <form class="inline" method="post" action="{{ url_for('absences.decide', absence_id=a.id, decision='approve') }}">{{ csrf() }}<input type="hidden" name="back" value="{{ request.full_path }}"><button class="btn btn-success btn-sm">Genehmigen</button></form>
+          <form class="inline" method="post" action="{{ url_for('absences.decide', absence_id=a.id, decision='reject') }}" data-confirm="Antrag ablehnen?">{{ csrf() }}<input type="hidden" name="back" value="{{ request.full_path }}"><button class="btn btn-danger btn-sm">Ablehnen</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>{{ 'Neue Abwesenheit' if target.id != current_user.id else 'Abwesenheit beantragen / melden' }}</h2>
+    <form method="post" action="{{ url_for('absences.new') }}">
+      {{ csrf() }}
+      {% if users|length > 1 %}
+        <div class="field"><label>Mitarbeiter</label>{{ user_select(users, target.id, onchange=False) }}</div>
+      {% else %}<input type="hidden" name="user_id" value="{{ target.id }}">{% endif %}
+      <div class="field"><label>Art</label>
+        <select name="kind">
+          {% for key, t in types.items() %}<option value="{{ key }}">{{ t[0] }}{% if not t[2] %} (ohne Genehmigung){% endif %}</option>{% endfor %}
+        </select></div>
+      <div class="form-grid">
+        <div class="field"><label>Von</label><input type="date" name="start_date" required></div>
+        <div class="field"><label>Bis</label><input type="date" name="end_date"><div class="hint">Leer = nur ein Tag</div></div>
+      </div>
+      <div class="field"><label class="check"><input type="checkbox" name="half_day" value="1"> Halber Tag</label></div>
+      <div class="field"><label>Bemerkung</label><input type="text" name="note" maxlength="500"></div>
+      <button class="btn" type="submit">Absenden</button>
+      <p class="small muted">Urlaub &amp; Co. müssen vom Vorgesetzten genehmigt werden (ohne Vorgesetzten: vom Administrator). Krankmeldungen gelten sofort.
+        Freizeitausgleich wird vom Überstundenkonto abgezogen.</p>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="page-head" style="margin-bottom:.5rem">
+      <h2 style="margin:0">Urlaubskonto {{ year }}</h2>
+      <form method="get" class="btn-row">
+        <input type="hidden" name="user_id" value="{{ target.id }}">
+        <a class="btn btn-light btn-sm" href="{{ url_for('absences.index', user_id=target.id, year=year-1) }}">‹</a>
+        <strong>{{ year }}</strong>
+        <a class="btn btn-light btn-sm" href="{{ url_for('absences.index', user_id=target.id, year=year+1) }}">›</a>
+      </form>
+    </div>
+    {% if users|length > 1 %}
+      <form method="get" class="field"><input type="hidden" name="year" value="{{ year }}">{{ user_select(users, target.id) }}</form>
+    {% endif %}
+    <div class="grid grid-4" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr))">
+      <div class="stat"><div class="label">Anspruch</div><div class="value">{{ vacation.total|num }}</div></div>
+      <div class="stat"><div class="label">Genommen</div><div class="value">{{ vacation.taken|num }}</div></div>
+      <div class="stat"><div class="label">Beantragt</div><div class="value">{{ vacation.pending|num }}</div></div>
+      <div class="stat"><div class="label">Rest</div><div class="value {{ 'neg' if vacation.left < 0 }}">{{ vacation.left|num }}</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>{{ target.full_name }} – {{ year }}</h2>
+  {% if absences %}
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Art</th><th>Zeitraum</th><th class="num">Arbeitstage</th><th>Status</th><th>Bemerkung</th><th></th></tr></thead>
+    <tbody>
+    {% for a in absences %}
+      <tr>
+        <td data-label="Art">{{ absence_tag(a) }}</td>
+        <td data-label="Zeitraum" class="nowrap">{{ a.start_date|d }}{% if a.end_date != a.start_date %} – {{ a.end_date|d }}{% endif %}</td>
+        <td data-label="Arbeitstage" class="num">{{ workdays[a.id]|num }}</td>
+        <td data-label="Status">{{ status_tag(a) }}{% if a.decided_by %}<div class="small muted">{{ a.decided_by.full_name }}, {{ a.decided_at|d }}</div>{% endif %}</td>
+        <td data-label="Bemerkung">{{ a.note or '' }}</td>
+        <td data-label="" class="right">
+          {% if (a.status == 'pending' and a.user_id == current_user.id) or can_manage(a.user) %}
+          <form class="inline" method="post" action="{{ url_for('absences.decide', absence_id=a.id, decision='cancel') }}" data-confirm="Abwesenheit löschen?">
+            {{ csrf() }}<input type="hidden" name="back" value="{{ request.full_path }}"><button class="btn btn-light btn-sm">Löschen</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty">Keine Abwesenheiten in {{ year }}.</p>{% endif %}
+</div>
+
+{% if upcoming %}
+<div class="card">
+  <h2>Kommende Abwesenheiten im Team</h2>
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Mitarbeiter</th><th>Art</th><th>Zeitraum</th><th class="num">Tage</th></tr></thead>
+    <tbody>
+    {% for a in upcoming %}
+      <tr><td data-label="Mitarbeiter">{{ a.user.full_name }}</td><td data-label="Art">{{ absence_tag(a) }}</td>
+        <td data-label="Zeitraum" class="nowrap">{{ a.start_date|d }}{% if a.end_date != a.start_date %} – {{ a.end_date|d }}{% endif %}</td>
+        <td data-label="Tage" class="num">{{ workdays[a.id]|num }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

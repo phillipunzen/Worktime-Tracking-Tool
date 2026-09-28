@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ 'Eintrag bearbeiten' if entry.id else 'Eintrag hinzufügen' }}{% endblock %}
+{% block content %}
+{% set f = request.form if request.method == 'POST' else {} %}
+<div class="page-head">
+  <div><h1>{{ 'Eintrag bearbeiten' if entry.id else 'Zeit nachtragen' }}</h1><p class="muted">{{ target.full_name }}</p></div>
+</div>
+<div class="card" style="max-width:640px">
+  <form method="post">
+    {{ csrf() }}
+    <input type="hidden" name="user_id" value="{{ target.id }}">
+    <div class="form-grid">
+      <div class="field"><label>Datum</label>
+        <input type="date" name="date" required value="{{ f.get('date') or (entry.start_time.date()|iso if entry.start_time else default_date|iso) }}"></div>
+      <div class="field"><label>Beginn</label>
+        <input type="time" name="start" required value="{{ f.get('start') or entry.start_time|t }}"></div>
+      <div class="field"><label>Ende</label>
+        <input type="time" name="end" value="{{ f.get('end') or entry.end_time|t }}">
+        <div class="hint">Leer lassen, wenn noch gearbeitet wird. Ende vor Beginn = über Mitternacht.</div></div>
+      <div class="field"><label>Pause (Minuten)</label>
+        <input type="number" name="break_minutes" min="0" step="1" value="{{ f.get('break_minutes') or entry.break_minutes or 0 }}"></div>
+    </div>
+    <div class="field"><label>Notiz</label>
+      <input type="text" name="note" maxlength="500" value="{{ f.get('note') or entry.note or '' }}" placeholder="z. B. Grund der Korrektur, Projekt"></div>
+    <p class="small muted">Nachgetragene und geänderte Einträge werden gekennzeichnet und im Änderungsprotokoll festgehalten.</p>
+    <div class="btn-row">
+      <button class="btn" type="submit">Speichern</button>
+      <a class="btn btn-light" href="{{ url_for('entries.index', user_id=target.id) }}">Abbrechen</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

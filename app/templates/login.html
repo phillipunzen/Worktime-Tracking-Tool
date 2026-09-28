@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Anmelden{% endblock %}
+{% block public %}
+<div class="login-wrap">
+  <div class="card login-card">
+    <img class="logo" src="{{ url_for('static', filename='icon.svg') }}" alt="">
+    <h1>{{ company_name }}</h1>
+    <p class="muted" style="text-align:center">Bitte melde dich an, um Zeiten zu erfassen.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field">
+        <label for="username">Benutzername</label>
+        <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Passwort</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" name="remember" value="1"> Angemeldet bleiben</label>
+      </div>
+      <button class="btn" type="submit" style="width:100%">Anmelden</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

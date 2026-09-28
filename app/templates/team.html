@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import signed, status_pill, absence_tag %}
+{% block title %}Team{% endblock %}
+{% block body_attrs %}data-refresh="120"{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Team-Übersicht</h1><p class="muted">Stand {{ now|dt }} · aktualisiert sich automatisch</p></div>
+  <div class="btn-row">
+    <a class="btn btn-light" href="{{ url_for('reports.index', user='team', period='week') }}">Team-Bericht Woche</a>
+    <a class="btn btn-light" href="{{ url_for('reports.index', user='team', period='month') }}">Team-Bericht Monat</a>
+  </div>
+</div>
+<div class="grid grid-4" style="margin-bottom:1rem">
+  <div class="card stat"><div class="label">Anwesend</div><div class="value">{{ counts.working }}</div></div>
+  <div class="card stat"><div class="label">In Pause</div><div class="value">{{ counts.pause }}</div></div>
+  <div class="card stat"><div class="label">Abwesend (Urlaub etc.)</div><div class="value">{{ counts.absent }}</div></div>
+  <div class="card stat"><div class="label">Mitarbeiter</div><div class="value">{{ rows|length }}</div></div>
+</div>
+<div class="card">
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Mitarbeiter</th><th>Status</th><th>Kommen</th><th class="num">Heute</th><th class="num">Woche</th><th class="num">Saldo</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td data-label="Mitarbeiter"><strong>{{ r.user.full_name }}</strong>{% if r.user.supervisor %}<div class="small muted">{{ r.user.supervisor.full_name }}</div>{% endif %}</td>
+        <td data-label="Status">{% if r.absence and r.status == 'off' %}{{ absence_tag(r.absence) }}{% else %}{{ status_pill(r.status) }}{% endif %}</td>
+        <td data-label="Kommen" class="mono">{{ r.today.first_start|t }}</td>
+        <td data-label="Heute" class="num">{{ r.today.work_minutes|hm }}</td>
+        <td data-label="Woche" class="num">{{ r.week_work|hm }} / {{ r.week_target|hm }}</td>
+        <td data-label="Saldo" class="num">{{ signed(r.balance) }}</td>
+        <td data-label="" class="right nowrap">
+          {% if r.warnings %}<span class="tag tag-orange" title="Hinweise diese Woche">⚠ {{ r.warnings }}</span>{% endif %}
+          <a class="btn btn-light btn-sm" href="{{ url_for('reports.index', user=r.user.id, period='month') }}">Bericht</a>
+          <a class="btn btn-light btn-sm" href="{{ url_for('entries.index', user_id=r.user.id) }}">Zeiten</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="empty">Dir sind noch keine Mitarbeiter zugeordnet.</p>
+  {% endif %}
+</div>
+{% endblock %}

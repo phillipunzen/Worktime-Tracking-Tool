@@ -1,0 +1,57 @@
+# Zeiterfassung mit MySQL 8
+#   1. .env.example nach .env kopieren und Passwörter anpassen
+#   2. docker compose up -d
+#   3. http://<host>:8080 aufrufen
+services:
+  app:
+    build: .
+    image: zeiterfassung:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8080}:8000"
+    environment:
+      DB_TYPE: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE:-zeiterfassung}
+      DB_USER: ${MYSQL_USER:-zeiterfassung}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD in .env setzen}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY in .env setzen}
+      TZ: ${TZ:-Europe/Berlin}
+      COMPANY_NAME: ${COMPANY_NAME:-Zeiterfassung}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      ALLOW_SELF_EDIT: ${ALLOW_SELF_EDIT:-true}
+      BEHIND_PROXY: ${BEHIND_PROXY:-false}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      SMTP_FROM: ${SMTP_FROM:-}
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-zeiterfassung}
+      MYSQL_USER: ${MYSQL_USER:-zeiterfassung}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD in .env setzen}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD in .env setzen}
+      TZ: ${TZ:-Europe/Berlin}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  db_data:

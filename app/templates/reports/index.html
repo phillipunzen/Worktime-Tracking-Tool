@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "_macros.html" import signed, absence_tag %}
+{% block title %}Berichte{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Berichte</h1><p class="muted">Tages-, Wochen-, Monats-, Jahres- oder freie Auswertung</p></div>
+  <div class="btn-row">
+    <a class="btn" href="{{ url_for('reports.pdf', **query) }}">⬇ PDF</a>
+    <a class="btn btn-light" href="{{ url_for('reports.export_csv', **query) }}">⬇ CSV / Excel</a>
+  </div>
+</div>
+
+<div class="card">
+  <form class="filters" method="get">
+    <div class="field grow"><label>Mitarbeiter</label>
+      <select name="user">
+        {% if show_team_option %}<option value="team" {{ 'selected' if p.selection == 'team' }}>— Ganzes Team —</option>{% endif %}
+        {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if p.selection == u.id|string }}>{{ u.full_name }}{% if not u.active %} (inaktiv){% endif %}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label>Zeitraum</label>
+      <select name="period" id="period">
+        {% for key, label in periods.items() %}<option value="{{ key }}" {{ 'selected' if p.period == key }}>{{ label }}</option>{% endfor %}
+      </select></div>
+    <div class="field" data-ref><label>Datum im Zeitraum</label><input type="date" name="ref" value="{{ p.ref|iso }}"></div>
+    <div class="field" data-custom><label>Von</label><input type="date" name="from" value="{{ p.start|iso }}"></div>
+    <div class="field" data-custom><label>Bis</label><input type="date" name="to" value="{{ p.end|iso }}"></div>
+    <div class="field"><label>Anzeige</label>
+      <select name="hide_empty"><option value="1" {{ 'selected' if p.hide_empty }}>nur Tage mit Inhalt</option><option value="0" {{ 'selected' if not p.hide_empty }}>alle Tage</option></select></div>
+    <button class="btn btn-light" type="submit">Anzeigen</button>
+  </form>
+</div>
+
+<div class="period-nav" style="margin: 0 0 1rem">
+  {% if p.period != 'custom' %}<a class="btn btn-light btn-sm" href="{{ url_for('reports.index', hide_empty='1' if p.hide_empty else '0', **prev_args) }}">‹ zurück</a>{% endif %}
+  <span class="label">{{ p.label }}</span>
+  {% if p.period != 'custom' %}<a class="btn btn-light btn-sm" href="{{ url_for('reports.index', hide_empty='1' if p.hide_empty else '0', **next_args) }}">weiter ›</a>{% endif %}
+</div>
+
+{% if reports|length > 1 %}
+<div class="card">
+  <h2>Team-Übersicht</h2>
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Mitarbeiter</th><th class="num">Soll</th><th class="num">Ist</th><th class="num">Gutschrift</th><th class="num">Differenz</th><th class="num">Saldo gesamt</th><th>Abwesenheiten</th><th class="num">Hinweise</th></tr></thead>
+    <tbody>
+    {% for r in reports %}
+      <tr>
+        <td data-label="Mitarbeiter"><a href="{{ url_for('reports.index', user=r.user.id, period=p.period, ref=p.ref|iso, **{'from': p.start|iso, 'to': p.end|iso}) }}"><strong>{{ r.user.full_name }}</strong></a></td>
+        <td data-label="Soll" class="num">{{ r.target_minutes|hm }}</td>
+        <td data-label="Ist" class="num">{{ r.work_minutes|hm }}</td>
+        <td data-label="Gutschrift" class="num">{{ r.credit_minutes|hm }}</td>
+        <td data-label="Differenz" class="num">{{ signed(r.diff_minutes) }}</td>
+        <td data-label="Saldo gesamt" class="num">{{ signed(balances[r.user.id]) }}</td>
+        <td data-label="Abwesenheiten">{% for k, v in r.absence_days().items() %}<span class="tag">{{ k }}: {{ v|num }}</span> {% endfor %}</td>
+        <td data-label="Hinweise" class="num">{% if r.warnings_count %}<span class="tag tag-orange">⚠ {{ r.warnings_count }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+{% for r in reports %}
+<div class="card">
+  <div class="page-head" style="margin-bottom:.5rem">
+    <div><h2 style="margin:0">{{ r.user.full_name }}</h2>
+      <div class="small muted">{{ r.user.weekly_hours|num }} h/Woche{% if r.user.supervisor %} · Vorgesetzte/r: {{ r.user.supervisor.full_name }}{% endif %}</div></div>
+  </div>
+  <div class="grid grid-4" style="margin-bottom:1rem">
+    <div class="stat"><div class="label">Soll</div><div class="value">{{ r.target_minutes|hm }}</div></div>
+    <div class="stat"><div class="label">Ist</div><div class="value">{{ r.work_minutes|hm }}</div>{% if r.credit_minutes %}<div class="sub">+ {{ r.credit_minutes|hm }} Gutschrift</div>{% endif %}</div>
+    <div class="stat"><div class="label">Differenz (bis heute)</div><div class="value">{{ signed(r.diff_minutes) }}</div></div>
+    <div class="stat"><div class="label">Saldo (bis gestern)</div><div class="value">{{ signed(balances[r.user.id]) }}</div></div>
+  </div>
+  {% set rows = r.days|rejectattr('is_empty')|list if p.hide_empty else r.days %}
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="compact">
+    <thead><tr><th>Datum</th><th class="hide-sm">Beginn</th><th class="hide-sm">Ende</th><th class="num hide-sm">Pause</th><th class="num">Arbeit</th><th class="num">Soll</th><th class="num">Diff.</th><th>Info</th></tr></thead>
+    <tbody>
+    {% for d in rows %}
+      <tr class="{{ 'weekend' if d.day.weekday() >= 5 or d.holiday }}">
+        <td data-label="Datum" class="nowrap"><a href="{{ url_for('entries.index', user_id=r.user.id, **{'from': d.day|iso, 'to': d.day|iso}) }}">{{ d.day|dw }}</a></td>
+        <td data-label="Beginn" class="mono hide-sm">{{ d.first_start|t }}</td>
+        <td data-label="Ende" class="mono hide-sm">{{ '…' if d.running else d.last_end|t }}</td>
+        <td data-label="Pause" class="num hide-sm">{{ d.pause_minutes|hm if d.entries }}</td>
+        <td data-label="Arbeit" class="num">{{ d.work_minutes|hm if d.entries }}</td>
+        <td data-label="Soll" class="num">{{ d.target_minutes|hm if d.target_minutes }}</td>
+        <td data-label="Diff." class="num">{% if not d.future and (d.target_minutes or d.work_minutes) %}{{ signed(d.diff_minutes) }}{% endif %}</td>
+        <td data-label="Info">
+          {% if d.holiday %}<span class="tag tag-blue">{{ d.holiday }}</span>{% endif %}
+          {% if d.absence %}{{ absence_tag(d.absence) }}{% endif %}
+          {% for e in d.entries if e.note %}<div class="small">{{ e.note }}</div>{% endfor %}
+          {% if d.entries|selectattr('source', 'equalto', 'manual')|list %}<span class="tag">korrigiert</span>{% endif %}
+          {% for w in d.warnings %}<div class="warn">⚠ {{ w }}</div>{% endfor %}
+        </td>
+      </tr>
+    {% endfor %}
+      <tr class="total">
+        <td data-label="">Summe</td><td class="hide-sm"></td><td class="hide-sm"></td>
+        <td data-label="Pause" class="num hide-sm">{{ r.pause_minutes|hm }}</td>
+        <td data-label="Arbeit" class="num">{{ r.work_minutes|hm }}</td>
+        <td data-label="Soll" class="num">{{ r.target_minutes|hm }}</td>
+        <td data-label="Differenz" class="num">{{ signed(r.diff_minutes) }}</td>
+        <td data-label=""></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty">Keine Daten im Zeitraum.</p>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

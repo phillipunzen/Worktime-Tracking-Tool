@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, user_select %}
+{% block title %}Zeiteinträge{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Zeiteinträge</h1><p class="muted">{{ target.full_name }} · {{ start|d }} – {{ end|d }}</p></div>
+  {% if can_edit %}<a class="btn" href="{{ url_for('entries.new', user_id=target.id) }}">+ Eintrag hinzufügen</a>{% endif %}
+</div>
+<div class="card">
+  <form class="filters" method="get">
+    {% if users|length > 1 %}<div class="field grow"><label>Mitarbeiter</label>{{ user_select(users, target.id) }}</div>
+    {% else %}<input type="hidden" name="user_id" value="{{ target.id }}">{% endif %}
+    <div class="field"><label>Von</label><input type="date" name="from" value="{{ start|iso }}"></div>
+    <div class="field"><label>Bis</label><input type="date" name="to" value="{{ end|iso }}"></div>
+    <button class="btn btn-light" type="submit">Anzeigen</button>
+  </form>
+</div>
+<div class="card">
+  {% if entries %}
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Datum</th><th>Beginn</th><th>Ende</th><th class="num">Pause</th><th class="num">Dauer</th><th>Notiz</th><th></th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr>
+        <td data-label="Datum" class="nowrap">{{ e.start_time.date()|dw }}</td>
+        <td data-label="Beginn" class="mono">{{ e.start_time|t }}</td>
+        <td data-label="Ende" class="mono">{% if e.end_time %}{{ e.end_time|t }}{% if e.end_time.date() != e.start_time.date() %} <span class="small muted">(+1)</span>{% endif %}{% else %}<span class="tag tag-green">offen</span>{% endif %}</td>
+        <td data-label="Pause" class="num">{{ e.break_minutes ~ ' min' if e.break_minutes }}</td>
+        <td data-label="Dauer" class="num">{{ (e.duration_minutes - e.break_minutes)|hm if e.end_time }}</td>
+        <td data-label="Notiz">{{ e.note or '' }}
+          {% if e.source == 'manual' %}<span class="tag" title="zuletzt geändert {{ e.updated_at|dt }}">nachgetragen</span>{% endif %}
+          {% if e.end_reason == 'pause' %}<span class="tag tag-orange">→ Pause</span>{% endif %}</td>
+        <td data-label="" class="right nowrap">
+          {% if can_edit %}
+            <a class="btn btn-light btn-sm" href="{{ url_for('entries.edit', entry_id=e.id) }}">Bearbeiten</a>
+            <form class="inline" method="post" action="{{ url_for('entries.delete', entry_id=e.id) }}" data-confirm="Eintrag wirklich löschen?">
+              {{ csrf() }}<button class="btn btn-light btn-sm" type="submit">Löschen</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="empty">Keine Einträge im gewählten Zeitraum.</p>
+  {% endif %}
+</div>
+{% endblock %}

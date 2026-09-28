@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, signed, status_pill, absence_tag %}
+{% block title %}Stempeluhr{% endblock %}
+{% block body_attrs %}data-now="{{ now|iso }}"{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Hallo {{ current_user.full_name.split(' ')[0] }} 👋</h1>
+    <p class="muted">{{ now.date()|dw }}{% if today.holiday %} · <span class="tag tag-blue">{{ today.holiday }}</span>{% endif %}{% if absence_today %} · {{ absence_tag(absence_today) }}{% endif %}</p>
+  </div>
+</div>
+
+{% if stale_entry %}
+  <div class="flash flash-warning">
+    Du bist seit {{ stale_entry.start_time|dt }} eingestempelt – vermutlich wurde das Ausstempeln vergessen.
+    <a href="{{ url_for('entries.edit', entry_id=stale_entry.id) }}">Eintrag korrigieren</a>
+  </div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card clock-card">
+    {{ status_pill(status) }}
+    <div class="big-time" {% if status == 'working' and not stale_entry %}data-timer data-seconds data-base="{{ today_closed }}" data-since="{{ entry.start_time|iso }}"{% endif %}>{{ today.work_minutes|hm }}</div>
+    <div class="muted">Arbeitszeit heute{% if today.target_minutes %} · Soll {{ today.target_minutes|hm }}{% endif %}</div>
+    {% if status == 'working' %}<div class="small muted">seit {{ entry.start_time|t }} Uhr eingestempelt</div>
+    {% elif status == 'pause' %}<div class="small muted">Pause seit {{ entry.end_time|t }} Uhr · <span data-timer data-seconds data-since="{{ entry.end_time|iso }}"></span></div>{% endif %}
+
+    <form method="post" action="{{ url_for('main.stamp') }}">
+      {{ csrf() }}
+      <div class="stamp-buttons">
+        {% if status == 'off' %}
+          <button class="btn btn-success" name="action" value="in">▶ Kommen</button>
+        {% elif status == 'working' %}
+          <button class="btn btn-warning" name="action" value="pause">❚❚ Pause</button>
+          <button class="btn btn-danger" name="action" value="out">■ Gehen</button>
+        {% else %}
+          <button class="btn btn-success" name="action" value="resume">▶ Weiter</button>
+        {% endif %}
+      </div>
+      <div class="stamp-note">
+        <input type="text" name="note" maxlength="500" placeholder="Notiz (optional), z. B. Projekt oder Tätigkeit">
+      </div>
+    </form>
+  </div>
+
+  <div class="grid stat-grid">
+    <div class="card stat">
+      <div class="label">Diese Woche</div>
+      <div class="value">{{ week.work_minutes|hm }}</div>
+      <div class="sub">von {{ week.target_minutes|hm }} h Soll</div>
+      {% set pct = ((week.work_minutes + week.credit_minutes) / week.target_minutes * 100) if week.target_minutes else 0 %}
+      <div class="progress"><span style="width: {{ [pct, 100]|min }}%"></span></div>
+    </div>
+    <div class="card stat">
+      <div class="label">Wochensaldo bis heute</div>
+      <div class="value">{{ signed(week_diff_so_far) }}</div>
+      <div class="sub">Soll bis heute {{ week_target_so_far|hm }}</div>
+    </div>
+    <div class="card stat">
+      <div class="label">Überstundenkonto</div>
+      <div class="value">{{ signed(balance) }}</div>
+      <div class="sub">Stand bis gestern</div>
+    </div>
+    <div class="card stat">
+      <div class="label">Resturlaub {{ now.year }}</div>
+      <div class="value">{{ vacation.left|num }}</div>
+      <div class="sub">{{ vacation.taken|num }} genommen{% if vacation.pending %}, {{ vacation.pending|num }} beantragt{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem">
+  <div class="page-head" style="margin-bottom:.5rem">
+    <h2 style="margin:0">Heute</h2>
+    <div class="btn-row">
+      {% if config.ALLOW_SELF_EDIT or current_user.is_admin %}<a class="btn btn-light btn-sm" href="{{ url_for('entries.new') }}">+ Zeit nachtragen</a>{% endif %}
+      <a class="btn btn-light btn-sm" href="{{ url_for('entries.index') }}">Alle Einträge</a>
+    </div>
+  </div>
+  {% if today.entries %}
+    <div class="table-wrap">
+    <table class="responsive">
+      <thead><tr><th>Beginn</th><th>Ende</th><th class="num">Dauer</th><th>Notiz</th></tr></thead>
+      <tbody>
+      {% for e in today.entries %}
+        <tr>
+          <td data-label="Beginn" class="mono">{{ e.start_time|t }}</td>
+          <td data-label="Ende" class="mono">{% if e.end_time %}{{ e.end_time|t }}{% if e.end_reason == 'pause' %} <span class="tag tag-orange">Pause</span>{% endif %}{% else %}<span class="tag tag-green">läuft</span>{% endif %}</td>
+          <td data-label="Dauer" class="num">{% if e.end_time %}{{ e.duration_minutes|hm }}{% else %}…{% endif %}{% if e.break_minutes %} <span class="small muted">(−{{ e.break_minutes }} min)</span>{% endif %}</td>
+          <td data-label="Notiz">{{ e.note or '' }}{% if e.source == 'manual' %} <span class="tag">nachgetragen</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="small muted" style="margin-bottom:0">Pausen heute: {{ today.pause_minutes|hm }} h
+      {% for w in today.warnings %}<br><span class="warn">⚠ {{ w }}</span>{% endfor %}</p>
+  {% else %}
+    <p class="empty">Heute noch keine Buchungen.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Woche im Überblick</h2>
+  <div class="table-wrap">
+  <table class="compact">
+    <thead><tr><th>Tag</th><th class="hide-sm">Kommen</th><th class="hide-sm">Gehen</th><th class="num hide-sm">Pause</th><th class="num">Arbeit</th><th class="num">Soll</th><th class="num">Diff.</th><th>Info</th></tr></thead>
+    <tbody>
+    {% for d in week.days %}
+      <tr class="{{ 'today' if d.day == now.date() }} {{ 'weekend' if d.day.weekday() >= 5 }}">
+        <td data-label="Tag" class="nowrap">{{ d.day|dw }}</td>
+        <td data-label="Kommen" class="mono hide-sm">{{ d.first_start|t }}</td>
+        <td data-label="Gehen" class="mono hide-sm">{{ d.last_end|t if not d.running else '…' }}</td>
+        <td data-label="Pause" class="num hide-sm">{{ d.pause_minutes|hm if d.entries }}</td>
+        <td data-label="Arbeit" class="num">{{ d.work_minutes|hm if d.entries }}</td>
+        <td data-label="Soll" class="num">{{ d.target_minutes|hm if d.target_minutes }}</td>
+        <td data-label="Diff." class="num">{% if not d.future and (d.target_minutes or d.work_minutes) %}{{ signed(d.diff_minutes) }}{% endif %}</td>
+        <td data-label="Info">{% if d.holiday %}<span class="tag tag-blue">{{ d.holiday }}</span> {% endif %}{% if d.absence %}{{ absence_tag(d.absence) }}{% endif %}{% for w in d.warnings %}<div class="warn">⚠ {{ w }}</div>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

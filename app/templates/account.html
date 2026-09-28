@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Mein Konto{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Mein Konto</h1><p class="muted">{{ current_user.username }} · {{ current_user.role_label }}{% if current_user.supervisor %} · Vorgesetzte/r: {{ current_user.supervisor.full_name }}{% endif %}</p></div></div>
+{% if current_user.must_change_password %}
+  <div class="flash flash-warning">Bitte vergib jetzt ein eigenes Passwort, bevor du weiterarbeitest.</div>
+{% endif %}
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Passwort ändern</h2>
+    <form method="post">
+      {{ csrf() }}<input type="hidden" name="action" value="password">
+      <div class="field"><label>Aktuelles Passwort</label><input type="password" name="old_password" autocomplete="current-password" required></div>
+      <div class="field"><label>Neues Passwort</label><input type="password" name="new_password" minlength="{{ min_len }}" autocomplete="new-password" required>
+        <div class="hint">Mindestens {{ min_len }} Zeichen.</div></div>
+      <div class="field"><label>Neues Passwort wiederholen</label><input type="password" name="new_password2" minlength="{{ min_len }}" autocomplete="new-password" required></div>
+      <button class="btn" type="submit">Passwort speichern</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Profil</h2>
+    <form method="post">
+      {{ csrf() }}<input type="hidden" name="action" value="profile">
+      <div class="field"><label>Name</label><input type="text" name="full_name" value="{{ current_user.full_name }}" required></div>
+      <div class="field"><label>E-Mail</label><input type="email" name="email" value="{{ current_user.email or '' }}">
+        <div class="hint">Für Benachrichtigungen zu Urlaubsanträgen (falls E-Mail-Versand eingerichtet ist).</div></div>
+      <button class="btn" type="submit">Profil speichern</button>
+    </form>
+    <hr style="border:0;border-top:1px solid var(--border);margin:1.25rem 0">
+    <h3>Arbeitszeitmodell</h3>
+    <p class="small muted">{{ current_user.weekly_hours|num }} h/Woche · {{ current_user.vacation_days|num }} Urlaubstage/Jahr · erfasst seit {{ current_user.tracking_start|d }}</p>
+  </div>
+</div>
+{% endblock %}

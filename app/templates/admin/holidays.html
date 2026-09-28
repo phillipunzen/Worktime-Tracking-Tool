@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Feiertage{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Feiertage {{ year }}</h1><p class="muted">An Feiertagen entfällt die Sollzeit.</p></div>
+  <div class="btn-row">
+    <a class="btn btn-light btn-sm" href="{{ url_for('admin.holidays', year=year-1) }}">‹ {{ year-1 }}</a>
+    <a class="btn btn-light btn-sm" href="{{ url_for('admin.holidays', year=year+1) }}">{{ year+1 }} ›</a>
+  </div>
+</div>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Gesetzliche Feiertage importieren</h2>
+    <form method="post">
+      {{ csrf() }}<input type="hidden" name="action" value="import">
+      <div class="form-grid">
+        <div class="field"><label>Jahr</label><input type="number" name="year" value="{{ year }}" min="2000" max="2100"></div>
+        <div class="field"><label>Bundesland</label>
+          <select name="state">{% for code, name in states.items() %}<option value="{{ code }}">{{ name }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="field"><label class="check"><input type="checkbox" name="half_days" value="1"> Heiligabend &amp; Silvester als halbe Tage</label></div>
+      <button class="btn" type="submit">Importieren</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Eigenen Feiertag / Betriebsruhe hinzufügen</h2>
+    <form method="post">
+      {{ csrf() }}<input type="hidden" name="action" value="add">
+      <div class="form-grid">
+        <div class="field"><label>Datum</label><input type="date" name="date" required></div>
+        <div class="field"><label>Bezeichnung</label><input type="text" name="name" maxlength="128" required></div>
+      </div>
+      <div class="field"><label class="check"><input type="checkbox" name="half" value="1"> nur halber Tag</label></div>
+      <button class="btn" type="submit">Hinzufügen</button>
+    </form>
+  </div>
+</div>
+<div class="card">
+  {% if holidays %}
+  <div class="table-wrap">
+  <table class="responsive">
+    <thead><tr><th>Datum</th><th>Bezeichnung</th><th>Umfang</th><th></th></tr></thead>
+    <tbody>
+    {% for h in holidays %}
+      <tr>
+        <td data-label="Datum" class="nowrap">{{ h.holiday_date|dw }}</td>
+        <td data-label="Bezeichnung">{{ h.name }}</td>
+        <td data-label="Umfang">{{ 'halber Tag' if h.factor < 1 else 'ganzer Tag' }}</td>
+        <td data-label="" class="right">
+          <form class="inline" method="post" data-confirm="Feiertag löschen?">{{ csrf() }}<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ h.id }}"><button class="btn btn-light btn-sm">Löschen</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty">Für {{ year }} sind noch keine Feiertage hinterlegt.</p>{% endif %}
+</div>
+{% endblock %}

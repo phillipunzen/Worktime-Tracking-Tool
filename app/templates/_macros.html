@@ -1,0 +1,29 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro signed(minutes) -%}
+  <span class="mono {{ 'pos' if minutes > 0 else ('neg' if minutes < 0 else '') }}">{{ minutes|hm_signed }}</span>
+{%- endmacro %}
+
+{% macro status_pill(status) -%}
+  {% if status == 'working' %}<span class="status-pill status-working">Anwesend</span>
+  {% elif status == 'pause' %}<span class="status-pill status-pause">Pause</span>
+  {% else %}<span class="status-pill status-off">Nicht eingestempelt</span>{% endif %}
+{%- endmacro %}
+
+{% macro absence_tag(a) -%}
+  {% set cls = {'vacation': 'tag-blue', 'sick': 'tag-red', 'comp': 'tag-orange'} %}
+  <span class="tag {{ cls.get(a.kind, '') }}">{{ a.kind_label }}{% if a.half_day %} ½{% endif %}</span>
+{%- endmacro %}
+
+{% macro status_tag(a) -%}
+  {% set cls = {'approved': 'tag-green', 'pending': 'tag-orange', 'rejected': 'tag-red'} %}
+  <span class="tag {{ cls[a.status] }}">{{ a.status_label }}</span>
+{%- endmacro %}
+
+{% macro user_select(users, selected_id, name='user_id', onchange=True) -%}
+  <select name="{{ name }}" {% if onchange %}onchange="this.form.submit()"{% endif %}>
+    {% for u in users %}
+      <option value="{{ u.id }}" {{ 'selected' if u.id == selected_id }}>{{ u.full_name }}{% if not u.active %} (inaktiv){% endif %}</option>
+    {% endfor %}
+  </select>
+{%- endmacro %}
