@@ -46,9 +46,6 @@ class Config:
     APP_TIMEZONE = os.environ.get("APP_TIMEZONE") or os.environ.get("TZ") or "Europe/Berlin"
     COMPANY_NAME = os.environ.get("COMPANY_NAME", "Zeiterfassung")
 
-    # Dürfen Mitarbeiter ihre eigenen Zeiten nachtragen/korrigieren?
-    ALLOW_SELF_EDIT = env_bool("ALLOW_SELF_EDIT", True)
-
     ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
     ADMIN_FULLNAME = os.environ.get("ADMIN_FULLNAME", "Administrator")

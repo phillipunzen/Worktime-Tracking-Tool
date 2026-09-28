@@ -33,7 +33,8 @@ def _send(msg):
 
 def send_mail(recipients, subject, body):
     recipients = [r for r in recipients if r]
-    if not recipients or not mail_enabled():
+    from . import modules
+    if not recipients or not mail_enabled() or not modules.enabled("email"):
         return
     msg = EmailMessage()
     msg["From"] = os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USER") or "zeiterfassung@localhost"

@@ -172,6 +172,9 @@ def load_user(user_id):
 
 
 def audit(actor, action, target=None, details=""):
+    from . import modules
+    if not modules.enabled("audit"):
+        return
     db.session.add(AuditLog(
         actor_id=getattr(actor, "id", None),
         actor_name=getattr(actor, "full_name", None) or "System",
@@ -181,3 +184,11 @@ def audit(actor, action, target=None, details=""):
         details=(details or "")[:1000],
     ))
 
+
+
+class Setting(db.Model):
+    """Schlüssel/Wert-Einstellungen, z. B. aktivierte Module."""
+    __tablename__ = "app_settings"
+
+    setting_key = db.Column(db.String(64), primary_key=True)
+    setting_value = db.Column(db.String(255))

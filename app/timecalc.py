@@ -3,6 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from . import modules
 from .models import Absence, Holiday, TimeEntry
 from .utils import daterange, day_bounds, now_local
 
@@ -80,6 +81,8 @@ class Report:
 
 
 def holiday_map(start, end):
+    if not modules.enabled("holidays"):
+        return {}
     rows = Holiday.query.filter(Holiday.holiday_date >= start, Holiday.holiday_date <= end).all()
     return {h.holiday_date: h for h in rows}
 
@@ -106,6 +109,7 @@ def compute_report(user, start, end, now=None):
                         Absence.start_date <= end, Absence.end_date >= start)
                 .all())
     holidays = holiday_map(start, end)
+    arbzg = modules.enabled("arbzg")
 
     by_day = defaultdict(list)
     for e in entries:
@@ -154,16 +158,23 @@ def compute_report(user, start, end, now=None):
 
         if missing_end:
             res.warnings.append("Ausstempeln fehlt")
-        work = res.work_minutes
-        if work > 9 * 60 and res.pause_minutes < 45:
-            res.warnings.append("Pause unter 45 min bei mehr als 9 h")
-        elif work > 6 * 60 and res.pause_minutes < 30:
-            res.warnings.append("Pause unter 30 min bei mehr als 6 h")
-        if work > 10 * 60:
-            res.warnings.append("Mehr als 10 h Arbeitszeit")
+        if arbzg:
+            res.warnings += arbzg_warnings(res.work_minutes, res.pause_minutes)
         days.append(res)
 
     return Report(user=user, start=start, end=end, days=days)
+
+
+def arbzg_warnings(work, pause):
+    """Hinweise nach Arbeitszeitgesetz (§ 3, § 4 ArbZG)."""
+    warnings = []
+    if work > 9 * 60 and pause < 45:
+        warnings.append("Pause unter 45 min bei mehr als 9 h")
+    elif work > 6 * 60 and pause < 30:
+        warnings.append("Pause unter 30 min bei mehr als 6 h")
+    if work > 10 * 60:
+        warnings.append("Mehr als 10 h Arbeitszeit")
+    return warnings
 
 
 def balance_minutes(user, until=None):

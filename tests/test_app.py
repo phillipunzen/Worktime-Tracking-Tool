@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 
+from app import modules
 from app.extensions import db
 from app.models import Absence, Holiday, TimeEntry, User
 from app.timecalc import balance_minutes, compute_report, vacation_summary
@@ -128,7 +129,8 @@ def test_manual_entry_overlap_and_audit(client):
 
 
 def test_self_edit_disabled(app, client):
-    app.config["ALLOW_SELF_EDIT"] = False
+    modules.set_state("self_edit", False)
+    db.session.commit()
     make_user("max")
     login(client, "max")
     assert client.get("/entries/new").status_code == 403
@@ -196,3 +198,91 @@ def test_future_days_not_in_diff(app):
     rep = compute_report(u, date(2026, 3, 2), date(2026, 3, 8), now=datetime(2026, 3, 3, 12, 0))
     assert rep.target_minutes == 5 * 480
     assert rep.diff_minutes == -960  # Mo + heutiger Di zählen, Mi–Fr noch nicht
+
+
+def _admin_client(client):
+    admin = User.query.filter_by(username="admin").one()
+    admin.must_change_password = False
+    db.session.commit()
+    login(client, "admin", "admin-pass")
+
+
+def test_modules_page_toggles_features(client):
+    _admin_client(client)
+    page = client.get("/admin/modules").get_data(as_text=True)
+    assert "Abwesenheiten &amp; Urlaub" in page and "Team-Übersicht" in page
+    # alles aktiv lassen außer Team, PDF und Abwesenheiten
+    on = {k: "1" for k in modules.MODULES if k not in ("team", "pdf_export", "absences")}
+    resp = client.post("/admin/modules", data=on, follow_redirects=True)
+    assert "3 Änderung(en) gespeichert" in resp.get_data(as_text=True)
+    assert not modules.enabled("team") and not modules.enabled("absences")
+    # abhängige Module sind automatisch inaktiv
+    assert modules.own_state("absence_approval") and not modules.enabled("absence_approval")
+    assert client.get("/team").status_code == 404
+    assert client.get("/absences/").status_code == 404
+    assert client.get("/reports/pdf").status_code == 404
+    assert client.get("/reports/csv").status_code == 200
+    nav = client.get("/").get_data(as_text=True)
+    assert "Abwesenheiten" not in nav and 'href="/team"' not in nav
+    assert "⬇ PDF" not in client.get("/reports/").get_data(as_text=True)
+    # Protokoll hat die Änderungen erfasst
+    assert "Modul deaktiviert" in client.get("/admin/audit").get_data(as_text=True)
+
+
+def test_module_env_default(app, monkeypatch):
+    monkeypatch.setenv("MODULE_TEAM", "false")
+    modules.clear_cache()
+    assert not modules.enabled("team")
+    modules.set_state("team", True)  # gespeicherter Wert gewinnt
+    db.session.commit()
+    assert modules.enabled("team")
+
+
+def test_pause_and_notes_modules(client):
+    make_user("max")
+    modules.set_state("pause_button", False)
+    modules.set_state("stamp_notes", False)
+    db.session.commit()
+    login(client, "max")
+    client.post("/stamp", data={"action": "in", "note": "geheim"})
+    page = client.get("/").get_data(as_text=True)
+    assert 'value="pause"' not in page and 'name="note"' not in page
+    assert "nicht möglich" in client.post("/stamp", data={"action": "pause"}, follow_redirects=True).get_data(as_text=True)
+    assert TimeEntry.query.one().note is None
+
+
+def test_holidays_and_arbzg_modules(app):
+    u = make_user("max", weekly_hours=40, tracking_start=date(2026, 1, 1))
+    db.session.add(Holiday(holiday_date=date(2026, 3, 2), name="Test"))
+    db.session.add(TimeEntry(user_id=u.id, start_time=datetime(2026, 3, 3, 8, 0), end_time=datetime(2026, 3, 3, 15, 0)))
+    db.session.commit()
+    now = datetime(2026, 4, 1)
+    rep = compute_report(u, date(2026, 3, 2), date(2026, 3, 3), now=now)
+    assert rep.days[0].target_minutes == 0 and rep.days[1].warnings
+    modules.set_state("holidays", False)
+    modules.set_state("arbzg", False)
+    db.session.commit()
+    rep = compute_report(u, date(2026, 3, 2), date(2026, 3, 3), now=now)
+    assert rep.days[0].target_minutes == 480 and not rep.days[1].warnings
+
+
+def test_approval_workflow_off(client):
+    boss = make_user("boss", role="supervisor")
+    make_user("emp", supervisor=boss)
+    modules.set_state("absence_approval", False)
+    db.session.commit()
+    login(client, "emp")
+    client.post("/absences/new", data={"kind": "vacation", "start_date": "2026-08-03"})
+    assert Absence.query.one().status == "approved"
+
+
+def test_overtime_module_off(client):
+    boss = make_user("boss", role="supervisor")
+    make_user("emp", supervisor=boss)
+    modules.set_state("overtime", False)
+    db.session.commit()
+    login(client, "boss")
+    assert "Überstundenkonto" not in client.get("/").get_data(as_text=True)
+    assert "Saldo" not in client.get("/team").get_data(as_text=True)
+    pdf = client.get("/reports/pdf?user=team&period=month&ref=2026-02-03")
+    assert pdf.status_code == 200 and pdf.data.startswith(b"%PDF")

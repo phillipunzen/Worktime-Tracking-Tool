@@ -18,7 +18,6 @@ class TestConfig:
     WTF_CSRF_ENABLED = False
     APP_TIMEZONE = "Europe/Berlin"
     COMPANY_NAME = "Testfirma"
-    ALLOW_SELF_EDIT = True
     ADMIN_USERNAME = "admin"
     ADMIN_PASSWORD = "admin-pass"
     ADMIN_FULLNAME = "Admin"

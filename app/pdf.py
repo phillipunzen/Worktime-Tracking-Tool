@@ -36,6 +36,8 @@ def _styles():
 
 
 def _signed_color(minutes):
+    if minutes is None:
+        return colors.black
     if minutes < 0:
         return NEG
     if minutes > 0:
@@ -52,7 +54,8 @@ def _summary_table(rep, balance, st):
         ["Gutschriften (Abwesenheit)", fmt_minutes(rep.credit_minutes), "Abwesenheiten",
          Paragraph(escape(absence_text), st["cell"])],
         ["Differenz (bis heute)", fmt_minutes(rep.diff_minutes, signed=True),
-         "Überstundensaldo (bis gestern)", fmt_minutes(balance, signed=True)],
+         "Überstundensaldo (bis gestern)" if balance is not None else "",
+         fmt_minutes(balance, signed=True)],
     ]
     table = Table(data, colWidths=[55 * mm, 30 * mm, 60 * mm, 60 * mm], hAlign="LEFT")
     table.setStyle(TableStyle([
@@ -129,13 +132,19 @@ def _day_table(rep, st, hide_empty):
 
 
 def _team_overview(reports, balances, st):
-    rows = [["Mitarbeiter", "Soll", "Ist", "Gutschrift", "Differenz", "Saldo", "Hinweise"]]
+    with_balance = any(v is not None for v in balances.values())
+    rows = [["Mitarbeiter", "Soll", "Ist", "Gutschrift", "Differenz", "Hinweise"]]
+    if with_balance:
+        rows[0].insert(5, "Saldo")
     for rep in reports:
-        rows.append([rep.user.full_name, fmt_minutes(rep.target_minutes), fmt_minutes(rep.work_minutes),
-                     fmt_minutes(rep.credit_minutes), fmt_minutes(rep.diff_minutes, signed=True),
-                     fmt_minutes(balances[rep.user.id], signed=True), str(rep.warnings_count or "")])
-    table = Table(rows, repeatRows=1, hAlign="LEFT",
-                  colWidths=[70 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 25 * mm, 20 * mm])
+        row = [rep.user.full_name, fmt_minutes(rep.target_minutes), fmt_minutes(rep.work_minutes),
+               fmt_minutes(rep.credit_minutes), fmt_minutes(rep.diff_minutes, signed=True),
+               str(rep.warnings_count or "")]
+        if with_balance:
+            row.insert(5, fmt_minutes(balances[rep.user.id], signed=True))
+        rows.append(row)
+    widths = [70 * mm] + [25 * mm] * (5 if with_balance else 4) + [20 * mm]
+    table = Table(rows, repeatRows=1, hAlign="LEFT", colWidths=widths)
     style = [
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("BACKGROUND", (0, 0), (-1, 0), PRIMARY),
@@ -147,7 +156,8 @@ def _team_overview(reports, balances, st):
     ]
     for i, rep in enumerate(reports, start=1):
         style.append(("TEXTCOLOR", (4, i), (4, i), _signed_color(rep.diff_minutes)))
-        style.append(("TEXTCOLOR", (5, i), (5, i), _signed_color(balances[rep.user.id])))
+        if with_balance:
+            style.append(("TEXTCOLOR", (5, i), (5, i), _signed_color(balances[rep.user.id])))
     table.setStyle(TableStyle(style))
     return table
 

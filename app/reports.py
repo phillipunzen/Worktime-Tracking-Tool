@@ -4,6 +4,8 @@ import io
 from flask import Blueprint, Response, abort, render_template, request
 from flask_login import current_user, login_required
 
+from . import modules
+from .modules import require_module
 from .pdf import render_pdf
 from .permissions import get_visible_user_or_404, has_team, visible_users
 from .timecalc import balance_minutes, compute_report
@@ -40,7 +42,10 @@ def _params():
 def _build(params):
     now = now_local()
     reports = [compute_report(u, params["start"], params["end"], now) for u in params["users"]]
-    balances = {r.user.id: balance_minutes(r.user) for r in reports}
+    if modules.enabled("overtime"):
+        balances = {r.user.id: balance_minutes(r.user) for r in reports}
+    else:
+        balances = {r.user.id: None for r in reports}
     return reports, balances
 
 
@@ -73,6 +78,7 @@ def index():
 
 @bp.route("/pdf")
 @login_required
+@require_module("pdf_export")
 def pdf():
     params = _params()
     reports, balances = _build(params)
@@ -85,6 +91,7 @@ def pdf():
 
 @bp.route("/csv")
 @login_required
+@require_module("csv_export")
 def export_csv():
     params = _params()
     reports, _ = _build(params)

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Module{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Module</h1><p class="muted">Funktionen nach Bedarf ein- und ausschalten. Daten bleiben beim Deaktivieren erhalten.</p></div>
+</div>
+<form method="post">
+  {{ csrf() }}
+  <div class="grid grid-2">
+  {% for category, items in groups %}
+    <div class="card">
+      <h2>{{ category }}</h2>
+      {% for m in items %}
+        <label class="module-row">
+          <span class="switch"><input type="checkbox" name="{{ m.key }}" value="1" {{ 'checked' if own_state(m.key) }}><span class="slider"></span></span>
+          <span class="module-text">
+            <strong>{{ m.label }}</strong>
+            {% if own_state(m.key) and not enabled(m.key) %}<span class="tag tag-orange">inaktiv – benötigt {% for dep in m.requires if not enabled(dep) %}{{ all_modules[dep].label }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+            {% elif enabled(m.key) %}<span class="tag tag-green">aktiv</span>{% endif %}
+            {% if m.key == 'email' and not smtp_configured %}<span class="tag">SMTP nicht eingerichtet</span>{% endif %}
+            <span class="small muted">{{ m.description }}</span>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+  {% endfor %}
+  </div>
+  <div class="btn-row" style="margin-top:1rem">
+    <button class="btn" type="submit">Speichern</button>
+  </div>
+</form>
+{% endblock %}

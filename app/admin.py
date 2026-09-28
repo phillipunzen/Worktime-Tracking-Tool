@@ -5,7 +5,9 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from .auth import MIN_PASSWORD_LENGTH
+from . import modules
 from .extensions import db
+from .modules import require_module
 from .models import ROLES, WEEKDAYS, Absence, AuditLog, Holiday, User, audit
 from .permissions import admin_required, subordinate_ids
 from .utils import parse_date, parse_hours, today_local
@@ -165,6 +167,7 @@ def user_delete(user_id):
 # ---------------------------------------------------------------- Feiertage
 
 @bp.route("/holidays", methods=["GET", "POST"])
+@require_module("holidays")
 def holidays():
     year = request.args.get("year", type=int) or today_local().year
     if request.method == "POST":
@@ -228,6 +231,7 @@ def import_holidays(year, state="", include_half=False):
 # ---------------------------------------------------------------- Protokoll
 
 @bp.route("/audit")
+@require_module("audit")
 def audit_log():
     page = max(1, request.args.get("page", type=int) or 1)
     per_page = 100
@@ -235,3 +239,28 @@ def audit_log():
     rows = query.offset((page - 1) * per_page).limit(per_page + 1).all()
     return render_template("admin/audit.html", rows=rows[:per_page], page=page,
                            has_next=len(rows) > per_page)
+
+
+# ---------------------------------------------------------------- Module
+
+@bp.route("/modules", methods=["GET", "POST"])
+def modules_page():
+    if request.method == "POST":
+        changes = []
+        for key, module in modules.MODULES.items():
+            new = bool(request.form.get(key))
+            if new != modules.own_state(key):
+                changes.append((key, module, new))
+        # vor dem Umschalten protokollieren, damit auch das Abschalten des Protokolls erfasst wird
+        for key, module, new in changes:
+            audit(current_user, "Modul " + ("aktiviert" if new else "deaktiviert"), None, module.label)
+        for key, module, new in changes:
+            modules.set_state(key, new)
+        db.session.commit()
+        flash(f"{len(changes)} Änderung(en) gespeichert." if changes else "Keine Änderungen.", "success")
+        return redirect(url_for("admin.modules_page"))
+
+    groups = [(cat, [m for m in modules.MODULES.values() if m.category == cat]) for cat in modules.CATEGORIES]
+    return render_template("admin/modules.html", groups=groups, own_state=modules.own_state,
+                           enabled=modules.enabled, all_modules=modules.MODULES,
+                           smtp_configured=modules.smtp_configured())

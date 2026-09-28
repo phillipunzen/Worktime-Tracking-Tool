@@ -1,7 +1,9 @@
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from . import modules
 from .extensions import db
+from .modules import require_module
 from .models import Absence, TimeEntry
 from .permissions import has_team, visible_users
 from .timecalc import balance_minutes, compute_report, vacation_summary
@@ -58,8 +60,8 @@ def dashboard():
         week=week,
         week_target_so_far=week_target_so_far,
         week_diff_so_far=week_diff_so_far,
-        balance=balance_minutes(current_user),
-        vacation=vacation_summary(current_user, today.year),
+        balance=balance_minutes(current_user) if modules.enabled("overtime") else None,
+        vacation=vacation_summary(current_user, today.year) if modules.enabled("absences") else None,
         absence_today=todays_absence(current_user, today),
         now=now,
     )
@@ -71,7 +73,11 @@ def stamp():
     action = request.form.get("action")
     now = now_local()
     status, entry = current_status(current_user, now)
-    note = (request.form.get("note") or "").strip()[:500] or None
+    note = None
+    if modules.enabled("stamp_notes"):
+        note = (request.form.get("note") or "").strip()[:500] or None
+    if action == "pause" and not modules.enabled("pause_button"):
+        action = None
 
     if action in ("in", "resume") and status != "working":
         db.session.add(TimeEntry(user_id=current_user.id, start_time=now, source="stamp", note=note))
@@ -95,6 +101,7 @@ def stamp():
 
 @bp.route("/team")
 @login_required
+@require_module("team")
 def team():
     if not has_team(current_user):
         abort(403)
@@ -102,6 +109,7 @@ def team():
     today = now.date()
     week_start, week_end = period_range("week", today)
     rows = []
+    show_balance = modules.enabled("overtime")
     for user in visible_users(current_user, include_inactive=False):
         if user.id == current_user.id and not current_user.is_admin:
             continue
@@ -116,7 +124,7 @@ def team():
             "week_work": week.work_minutes,
             "week_target": week.target_minutes,
             "absence": todays_absence(user, today),
-            "balance": balance_minutes(user),
+            "balance": balance_minutes(user) if show_balance else None,
             "warnings": sum(len(d.warnings) for d in week.days),
         })
     counts = {

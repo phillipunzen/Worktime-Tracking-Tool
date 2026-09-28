@@ -24,13 +24,14 @@
       <nav class="nav">
         <a href="{{ url_for('main.dashboard') }}" class="{{ 'active' if ep == 'main.dashboard' }}">Stempeluhr</a>
         <a href="{{ url_for('entries.index') }}" class="{{ 'active' if ep.startswith('entries.') }}">Zeiten</a>
-        <a href="{{ url_for('absences.index') }}" class="{{ 'active' if ep.startswith('absences.') }}">Abwesenheiten{% if pending_count %}<span class="badge">{{ pending_count }}</span>{% endif %}</a>
+        {% if module('absences') %}<a href="{{ url_for('absences.index') }}" class="{{ 'active' if ep.startswith('absences.') }}">Abwesenheiten{% if pending_count %}<span class="badge">{{ pending_count }}</span>{% endif %}</a>{% endif %}
         <a href="{{ url_for('reports.index') }}" class="{{ 'active' if ep.startswith('reports.') }}">Berichte</a>
         {% if show_team %}<a href="{{ url_for('main.team') }}" class="{{ 'active' if ep == 'main.team' }}">Team</a>{% endif %}
         {% if current_user.is_admin %}
           <a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep.startswith('admin.user') }}">Benutzer</a>
-          <a href="{{ url_for('admin.holidays') }}" class="{{ 'active' if ep == 'admin.holidays' }}">Feiertage</a>
-          <a href="{{ url_for('admin.audit_log') }}" class="{{ 'active' if ep == 'admin.audit_log' }}">Protokoll</a>
+          {% if module('holidays') %}<a href="{{ url_for('admin.holidays') }}" class="{{ 'active' if ep == 'admin.holidays' }}">Feiertage</a>{% endif %}
+          {% if module('audit') %}<a href="{{ url_for('admin.audit_log') }}" class="{{ 'active' if ep == 'admin.audit_log' }}">Protokoll</a>{% endif %}
+          <a href="{{ url_for('admin.modules_page') }}" class="{{ 'active' if ep == 'admin.modules_page' }}">Module</a>
         {% endif %}
         <span class="spacer"></span>
         <a href="{{ url_for('auth.account') }}" class="{{ 'active' if ep == 'auth.account' }}">{{ current_user.full_name }}</a>

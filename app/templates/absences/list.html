@@ -42,7 +42,7 @@
       {% else %}<input type="hidden" name="user_id" value="{{ target.id }}">{% endif %}
       <div class="field"><label>Art</label>
         <select name="kind">
-          {% for key, t in types.items() %}<option value="{{ key }}">{{ t[0] }}{% if not t[2] %} (ohne Genehmigung){% endif %}</option>{% endfor %}
+          {% for key, t in types.items() %}<option value="{{ key }}">{{ t[0] }}{% if not t[2] and module('absence_approval') %} (ohne Genehmigung){% endif %}</option>{% endfor %}
         </select></div>
       <div class="form-grid">
         <div class="field"><label>Von</label><input type="date" name="start_date" required></div>
@@ -51,8 +51,8 @@
       <div class="field"><label class="check"><input type="checkbox" name="half_day" value="1"> Halber Tag</label></div>
       <div class="field"><label>Bemerkung</label><input type="text" name="note" maxlength="500"></div>
       <button class="btn" type="submit">Absenden</button>
-      <p class="small muted">Urlaub &amp; Co. müssen vom Vorgesetzten genehmigt werden (ohne Vorgesetzten: vom Administrator). Krankmeldungen gelten sofort.
-        Freizeitausgleich wird vom Überstundenkonto abgezogen.</p>
+      <p class="small muted">{% if module('absence_approval') %}Urlaub &amp; Co. müssen vom Vorgesetzten genehmigt werden (ohne Vorgesetzten: vom Administrator). Krankmeldungen gelten sofort.
+        {% else %}Einträge gelten sofort, eine Genehmigung ist nicht nötig. {% endif %}Freizeitausgleich wird vom Überstundenkonto abgezogen.</p>
     </form>
   </div>
 

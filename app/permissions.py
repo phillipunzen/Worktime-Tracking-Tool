@@ -1,8 +1,9 @@
 from functools import wraps
 
-from flask import abort, current_app
+from flask import abort
 from flask_login import current_user
 
+from . import modules
 from .extensions import db
 from .models import User
 
@@ -35,7 +36,7 @@ def can_view(viewer, target):
 def can_edit_entries(viewer, target):
     if viewer.is_admin or target.id in subordinate_ids(viewer):
         return True
-    return viewer.id == target.id and current_app.config.get("ALLOW_SELF_EDIT", True)
+    return viewer.id == target.id and modules.enabled("self_edit")
 
 
 def can_decide_absence(viewer, target):

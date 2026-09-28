@@ -5,8 +5,8 @@
 <div class="page-head">
   <div><h1>Berichte</h1><p class="muted">Tages-, Wochen-, Monats-, Jahres- oder freie Auswertung</p></div>
   <div class="btn-row">
-    <a class="btn" href="{{ url_for('reports.pdf', **query) }}">⬇ PDF</a>
-    <a class="btn btn-light" href="{{ url_for('reports.export_csv', **query) }}">⬇ CSV / Excel</a>
+    {% if module('pdf_export') %}<a class="btn" href="{{ url_for('reports.pdf', **query) }}">⬇ PDF</a>{% endif %}
+    {% if module('csv_export') %}<a class="btn btn-light" href="{{ url_for('reports.export_csv', **query) }}">⬇ CSV / Excel</a>{% endif %}
   </div>
 </div>
 
@@ -41,7 +41,7 @@
   <h2>Team-Übersicht</h2>
   <div class="table-wrap">
   <table class="responsive">
-    <thead><tr><th>Mitarbeiter</th><th class="num">Soll</th><th class="num">Ist</th><th class="num">Gutschrift</th><th class="num">Differenz</th><th class="num">Saldo gesamt</th><th>Abwesenheiten</th><th class="num">Hinweise</th></tr></thead>
+    <thead><tr><th>Mitarbeiter</th><th class="num">Soll</th><th class="num">Ist</th><th class="num">Gutschrift</th><th class="num">Differenz</th>{% if module('overtime') %}<th class="num">Saldo gesamt</th>{% endif %}<th>Abwesenheiten</th><th class="num">Hinweise</th></tr></thead>
     <tbody>
     {% for r in reports %}
       <tr>
@@ -50,7 +50,7 @@
         <td data-label="Ist" class="num">{{ r.work_minutes|hm }}</td>
         <td data-label="Gutschrift" class="num">{{ r.credit_minutes|hm }}</td>
         <td data-label="Differenz" class="num">{{ signed(r.diff_minutes) }}</td>
-        <td data-label="Saldo gesamt" class="num">{{ signed(balances[r.user.id]) }}</td>
+        {% if module('overtime') %}<td data-label="Saldo gesamt" class="num">{{ signed(balances[r.user.id]) }}</td>{% endif %}
         <td data-label="Abwesenheiten">{% for k, v in r.absence_days().items() %}<span class="tag">{{ k }}: {{ v|num }}</span> {% endfor %}</td>
         <td data-label="Hinweise" class="num">{% if r.warnings_count %}<span class="tag tag-orange">⚠ {{ r.warnings_count }}</span>{% endif %}</td>
       </tr>
@@ -71,7 +71,7 @@
     <div class="stat"><div class="label">Soll</div><div class="value">{{ r.target_minutes|hm }}</div></div>
     <div class="stat"><div class="label">Ist</div><div class="value">{{ r.work_minutes|hm }}</div>{% if r.credit_minutes %}<div class="sub">+ {{ r.credit_minutes|hm }} Gutschrift</div>{% endif %}</div>
     <div class="stat"><div class="label">Differenz (bis heute)</div><div class="value">{{ signed(r.diff_minutes) }}</div></div>
-    <div class="stat"><div class="label">Saldo (bis gestern)</div><div class="value">{{ signed(balances[r.user.id]) }}</div></div>
+    {% if module('overtime') %}<div class="stat"><div class="label">Saldo (bis gestern)</div><div class="value">{{ signed(balances[r.user.id]) }}</div></div>{% endif %}
   </div>
   {% set rows = r.days|rejectattr('is_empty')|list if p.hide_empty else r.days %}
   {% if rows %}

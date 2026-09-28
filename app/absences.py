@@ -3,6 +3,7 @@ from datetime import date
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from . import modules
 from .extensions import db
 from .mailer import send_mail
 from .models import ABSENCE_TYPES, Absence, User, audit
@@ -12,6 +13,12 @@ from .timecalc import count_workdays, vacation_summary
 from .utils import now_local, parse_date, today_local
 
 bp = Blueprint("absences", __name__, url_prefix="/absences")
+
+
+@bp.before_request
+def _module_guard():
+    if not modules.enabled("absences"):
+        abort(404)
 
 
 def pending_for(user):
@@ -115,7 +122,7 @@ def new():
 
     absence = Absence(user_id=target.id, kind=kind, start_date=start, end_date=end,
                       half_day=half_day, note=(form.get("note") or "").strip()[:500] or None)
-    needs_approval = ABSENCE_TYPES[kind][2]
+    needs_approval = ABSENCE_TYPES[kind][2] and modules.enabled("absence_approval")
     if not needs_approval or can_decide_absence(current_user, target):
         absence.status = "approved"
         absence.decided_by_id = current_user.id

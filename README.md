@@ -9,7 +9,7 @@ Gespeichert wird in **MySQL** oder **Microsoft SQL Server**.
 **Für Mitarbeiter**
 - Stempeluhr mit **Kommen / Pause / Weiter / Gehen** und Live-Zeitanzeige; zu jeder Buchung ist eine Notiz möglich (z. B. Projekt)
 - Übersicht über heute und die laufende Woche, Wochensaldo, **Überstundenkonto** und **Resturlaub**
-- Zeiten nachtragen und korrigieren; nachträgliche Einträge werden gekennzeichnet und protokolliert (per Einstellung abschaltbar)
+- Zeiten nachtragen und korrigieren; nachträgliche Einträge werden gekennzeichnet und protokolliert (als Modul abschaltbar)
 - **Abwesenheiten**: Urlaub, Krank, Sonderurlaub, Fortbildung und Freizeitausgleich, auch als halbe Tage
 - Hinweis, wenn das Ausstempeln vergessen wurde
 
@@ -26,11 +26,41 @@ Gespeichert wird in **MySQL** oder **Microsoft SQL Server**.
 - **CSV-Export**, der direkt in Excel geöffnet werden kann
 
 **Für Administratoren**
+- **Module**: Funktionen je nach Bedarf ein- und ausschalten (siehe unten)
 - Benutzerverwaltung mit den Rollen *Mitarbeiter*, *Vorgesetzter* und *Administrator*; jedem Benutzer kann ein Vorgesetzter zugeordnet werden
 - Individuelles Arbeitszeitmodell: Wochenstunden, Arbeitstage, Urlaubstage, Beginn der Erfassung und Übertrag von Überstunden
 - **Gesetzliche Feiertage je Bundesland per Klick importieren**; eigene Betriebsruhetage und halbe Tage sind möglich
 - **Änderungsprotokoll** aller Korrekturen, Genehmigungen und Verwaltungsaktionen
 - Schutz vor Passwort-Raten: Sperre nach 5 Fehlversuchen; beim ersten Login ist ein Passwortwechsel Pflicht
+
+## Module
+
+Unter **Module** kann der Administrator Funktionen ein- und ausschalten. Die Einstellung gilt sofort für alle Benutzer.
+Ist ein Modul deaktiviert, verschwinden Menüpunkte und Buttons, und die zugehörigen Seiten sind nicht mehr erreichbar.
+Die gespeicherten Daten bleiben erhalten.
+
+| Bereich | Modul | Wirkung |
+|---|---|---|
+| Zeiterfassung | Pausen-Stempel | Button Pause/Weiter an der Stempeluhr; ohne das Modul gibt es nur Kommen und Gehen |
+| | Notizen beim Stempeln | Freitext, z. B. Projekt, direkt an der Stempeluhr |
+| | Zeiten selbst nachtragen | Mitarbeiter dürfen eigene Zeiten korrigieren; Vorgesetzte und Admins dürfen das immer |
+| | Arbeitszeitgesetz-Hinweise | Warnungen zu Pausen und Höchstarbeitszeit |
+| Abwesenheiten | Abwesenheiten & Urlaub | Urlaub, Krank, Freizeitausgleich und Urlaubskonto |
+| | Genehmigungs-Workflow | Anträge muss der Vorgesetzte genehmigen; ohne das Modul gelten Einträge sofort |
+| | E-Mail-Benachrichtigungen | Mails zu Anträgen; setzt SMTP-Zugangsdaten voraus |
+| Auswertung | Überstundenkonto | Gesamtsaldo auf Startseite, Team-Übersicht, in Berichten und im PDF |
+| | Team-Übersicht | Live-Anwesenheit für Vorgesetzte |
+| | PDF-Export / CSV-Export | Download-Buttons in den Berichten |
+| Verwaltung | Feiertage | Feiertagsverwaltung; ohne das Modul werden Feiertage nicht berücksichtigt |
+| | Änderungsprotokoll | Protokoll aller Korrekturen und Verwaltungsaktionen |
+
+Manche Module setzen andere voraus; die E-Mails etwa brauchen den Genehmigungs-Workflow.
+Die Modulseite zeigt, wenn ein Modul deshalb inaktiv ist.
+
+Die Standardwerte vor dem ersten Speichern lassen sich per Umgebungsvariable setzen,
+z. B. `MODULE_TEAM=false` oder `MODULE_ABSENCE_APPROVAL=false`.
+Bei Docker Compose gehören diese Variablen in den Abschnitt `environment:` des `app`-Dienstes.
+Sobald ein Modul auf der Modulseite gespeichert wurde, gilt der Wert aus der Datenbank.
 
 ## Schnellstart (MySQL)
 
@@ -84,7 +114,8 @@ Alternativ kann eine vollständige SQLAlchemy-URL übergeben werden, etwa `DATAB
 | `TZ` | `Europe/Berlin` | Zeitzone für die Stempelzeiten |
 | `COMPANY_NAME` | `Zeiterfassung` | Name in der Oberfläche und auf den PDFs |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin` | Erster Administrator; wird nur angelegt, solange die Datenbank leer ist |
-| `ALLOW_SELF_EDIT` | `true` | Ob Mitarbeiter eigene Zeiten nachtragen oder ändern dürfen |
+| `ALLOW_SELF_EDIT` | `true` | Standardwert für das Modul „Zeiten selbst nachtragen“ |
+| `MODULE_<NAME>` | – | Standardwert eines Moduls, z. B. `MODULE_TEAM=false` (siehe [Module](#module)) |
 | `BEHIND_PROXY` | `false` | `true`, wenn die App hinter nginx, Traefik oder Caddy läuft |
 | `SESSION_COOKIE_SECURE` | `false` | `true` bei Zugriff über HTTPS |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURITY`, `SMTP_FROM` | – | Optional: E-Mails zu Urlaubsanträgen |

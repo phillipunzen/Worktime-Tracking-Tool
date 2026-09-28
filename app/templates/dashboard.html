@@ -31,15 +31,17 @@
         {% if status == 'off' %}
           <button class="btn btn-success" name="action" value="in">▶ Kommen</button>
         {% elif status == 'working' %}
-          <button class="btn btn-warning" name="action" value="pause">❚❚ Pause</button>
+          {% if module('pause_button') %}<button class="btn btn-warning" name="action" value="pause">❚❚ Pause</button>{% endif %}
           <button class="btn btn-danger" name="action" value="out">■ Gehen</button>
         {% else %}
           <button class="btn btn-success" name="action" value="resume">▶ Weiter</button>
         {% endif %}
       </div>
+      {% if module('stamp_notes') %}
       <div class="stamp-note">
         <input type="text" name="note" maxlength="500" placeholder="Notiz (optional), z. B. Projekt oder Tätigkeit">
       </div>
+      {% endif %}
     </form>
   </div>
 
@@ -56,16 +58,20 @@
       <div class="value">{{ signed(week_diff_so_far) }}</div>
       <div class="sub">Soll bis heute {{ week_target_so_far|hm }}</div>
     </div>
+    {% if balance is not none %}
     <div class="card stat">
       <div class="label">Überstundenkonto</div>
       <div class="value">{{ signed(balance) }}</div>
       <div class="sub">Stand bis gestern</div>
     </div>
+    {% endif %}
+    {% if vacation %}
     <div class="card stat">
       <div class="label">Resturlaub {{ now.year }}</div>
       <div class="value">{{ vacation.left|num }}</div>
       <div class="sub">{{ vacation.taken|num }} genommen{% if vacation.pending %}, {{ vacation.pending|num }} beantragt{% endif %}</div>
     </div>
+    {% endif %}
   </div>
 </div>
 
@@ -73,7 +79,7 @@
   <div class="page-head" style="margin-bottom:.5rem">
     <h2 style="margin:0">Heute</h2>
     <div class="btn-row">
-      {% if config.ALLOW_SELF_EDIT or current_user.is_admin %}<a class="btn btn-light btn-sm" href="{{ url_for('entries.new') }}">+ Zeit nachtragen</a>{% endif %}
+      {% if module('self_edit') or current_user.is_admin %}<a class="btn btn-light btn-sm" href="{{ url_for('entries.new') }}">+ Zeit nachtragen</a>{% endif %}
       <a class="btn btn-light btn-sm" href="{{ url_for('entries.index') }}">Alle Einträge</a>
     </div>
   </div>

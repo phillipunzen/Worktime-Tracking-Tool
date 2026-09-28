@@ -60,12 +60,15 @@ def create_app(config_object=None):
 
     @app.context_processor
     def inject_globals():
+        from . import modules
         from .permissions import has_team
-        ctx = {"company_name": app.config["COMPANY_NAME"], "show_team": False, "pending_count": 0}
+        ctx = {"company_name": app.config["COMPANY_NAME"], "show_team": False, "pending_count": 0,
+               "module": modules.enabled}
         if current_user.is_authenticated:
             from .absences import pending_for
-            ctx["show_team"] = has_team(current_user)
-            if ctx["show_team"]:
+            leads_team = has_team(current_user)
+            ctx["show_team"] = leads_team and modules.enabled("team")
+            if leads_team and modules.enabled("absences"):
                 ctx["pending_count"] = len(pending_for(current_user))
         return ctx
 
